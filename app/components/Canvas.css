@@ -1,0 +1,11 @@
+.canvasContainer {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+}
+
+.canvas {
+    display: block;
+    margin: auto;
+    background-color: white;
+}

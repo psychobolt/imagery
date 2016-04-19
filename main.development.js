@@ -1,8 +1,10 @@
-import { app, BrowserWindow, Menu, crashReporter, shell } from 'electron';
+import { app, BrowserWindow, Menu, crashReporter, shell, dialog } from 'electron';
+import ImageFile from './app/utils/ImageFile';
 
 let menu;
 let template;
 let mainWindow = null;
+let canvasId = 0;
 
 crashReporter.start();
 
@@ -175,7 +177,31 @@ app.on('ready', () => {
       label: '&File',
       submenu: [{
         label: '&Open',
-        accelerator: 'Ctrl+O'
+        accelerator: 'Ctrl+O',
+        click() {
+          let filepaths = dialog.showOpenDialog({
+            properties: ['openFile']
+          });
+          if (filepaths) {
+            const id = ++canvasId;
+            const filepath = filepaths[0];
+            const imageFile = new ImageFile(filepath);
+            imageFile.on('load-init', () => mainWindow.webContents.send('load-image', {id, imageFile})); 
+            imageFile.on('load-data', (pixels) => mainWindow.webContents.send('load-data', {id, filepath, pixels}));
+            imageFile.on('load-complete', () => mainWindow.webContents.send('load-complete', {id, filepath}));
+            imageFile.on('load-error', (message) => 
+              dialog.showMessageBox({
+                type: 'error',
+                title: 'Failed to load image',
+                buttons: ['Close'],
+                message
+              })
+            );
+            imageFile.load();
+          } else {
+            console.error('Failed to load image!');
+          }
+        }
       }, {
         label: '&Close',
         accelerator: 'Ctrl+W',
@@ -215,22 +241,17 @@ app.on('ready', () => {
       submenu: [{
         label: 'Learn More',
         click() {
-          shell.openExternal('http://electron.atom.io');
+          shell.openExternal('https://github.com/psychobolt/imagery');
         }
       }, {
         label: 'Documentation',
         click() {
-          shell.openExternal('https://github.com/atom/electron/tree/master/docs#readme');
-        }
-      }, {
-        label: 'Community Discussions',
-        click() {
-          shell.openExternal('https://discuss.atom.io/c/electron');
+          shell.openExternal('https://github.com/psychobolt/imagery/blob/master/README.md');
         }
       }, {
         label: 'Search Issues',
         click() {
-          shell.openExternal('https://github.com/atom/electron/issues');
+          shell.openExternal('https://github.com/psychobolt/imagery/issues');
         }
       }]
     }];
