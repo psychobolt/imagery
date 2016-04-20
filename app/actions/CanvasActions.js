@@ -7,7 +7,7 @@ export function initContext(canvas, gl) {
     dispatch({
       type: INIT_CONTEXT,
       payload: Object.assign({}, canvas, {
-        context: canvasUtils.initContext(gl)
+        context: canvasUtils.initContext(canvas, gl)
       })
     });
   };

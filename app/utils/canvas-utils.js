@@ -1,5 +1,5 @@
-import vertexShader from '../shaders/2d-texture.vert';
-import fragmentShader from '../shaders/2d-image.frag';
+import vertexShader from '../shaders/image-spatial.vert';
+import fragmentShader from '../shaders/image-raster.frag';
 
 function isError(gl, shader) {
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
@@ -31,32 +31,11 @@ export function createFragmentShader(gl, program) {
   return shader;
 }
 
-export function initContext(gl) {
+export function initContext(canvas, gl) {
   let context = {gl};
   
-  //create vertex buffer
-  const vertexBuffer = gl.createBuffer();
-  const vertices = new Float32Array([
-      //Position    //TexCoord
-		-1.0, 1.0, 0.0, 0.0, // Top-left
-		1.0, 1.0, 1.0, 0.0,  // Top-right
-		1.0, -1.0, 1.0, 1.0, // Bottom-right
-		-1.0, -1.0, 0.0, 1.0  // Bottom-left
-  ]);
-  gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-  
-  //create element array
-  const elementBuffer = gl.createBuffer();
-  const elements = new Uint8Array([
-    0, 1, 2,
-    2, 3, 0
-  ]);
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, elementBuffer);
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, elements, gl.STATIC_DRAW);
-  
+  //create and init shaders
   const program = gl.createProgram();
-  //create shaders
   const vertexShader = createVertexShader(gl, program);
   const fragmentShader = createFragmentShader(gl, program);
   if (!vertexShader || !fragmentShader) {
@@ -75,17 +54,47 @@ export function initContext(gl) {
   }
   gl.useProgram(program);
   
-  const texUnitLocation = gl.getUniformLocation(program, "texUnit");
-  gl.uniform1i(texUnitLocation, 0);
+  //create texture coordinate buffer
+  const vertexBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+    0.0, 0.0,
+    1.0, 0.0,
+    0.0, 1.0,
+    0.0, 1.0,
+    1.0, 0.0,
+    1.0, 1.0
+  ]), gl.STATIC_DRAW);
   
-  //specify the layout of the vertex data
-  const positionLocation = gl.getAttribLocation(program, "position");
-  gl.enableVertexAttribArray(positionLocation);
-  gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, gl.FALSE, 4 * 4, 0);
-  
-  const texCoordInLocation = gl.getAttribLocation(program, "texCoordIn");
+  //specify the location of the texture coordinate data
+  const texCoordInLocation = gl.getAttribLocation(program, "a_texCoord");
   gl.enableVertexAttribArray(texCoordInLocation);
-  gl.vertexAttribPointer(texCoordInLocation, 2, gl.FLOAT, gl.FALSE, 4 * 4, 2 * 4);
+  gl.vertexAttribPointer(texCoordInLocation, 2, gl.FLOAT, false, 0, 0);
+  
+  // set the resolution
+  const resolutionLocation = gl.getUniformLocation(program, "u_resolution");
+  gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
+  
+  //create pixel data buffer
+  const textureBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+    0.0, 0.0,
+    canvas.width, 0.0,
+    0.0, canvas.height,
+    0.0, canvas.height,
+    canvas.width, 0.0,
+    canvas.width, canvas.height
+  ]), gl.STATIC_DRAW);
+  
+  //specify the location of the pixel position data
+  const positionLocation = gl.getAttribLocation(program, "a_position");
+  gl.enableVertexAttribArray(positionLocation);
+  gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+  
+  // bind texture0 as shader texture
+  const textureLocation = gl.getUniformLocation(program, "u_image");
+  gl.uniform1i(textureLocation, 0);
 
   return Object.assign({}, context, {
       program,
@@ -112,21 +121,19 @@ export function renderCanvasData(context, layer) {
   const height = isPowerOfTwo(layer.height) ? layer.height : nextHighestPowerOfTwo(layer.height);
   const texture = gl.createTexture();
   const pixels = new Uint8Array(3 * width * height);
-  layer.pixels.forEach((pixel, index) => {
-    pixels[index] = pixel;
-    pixels[++index] = pixel;
-    pixels[++index] = pixel;
+  let index = 0;
+  layer.pixels.forEach((pixel) => {
+    pixels[index++] = pixel;
+    pixels[index++] = pixel;
+    pixels[index++] = pixel;
   });
   gl.bindTexture(gl.TEXTURE_2D, texture);
-  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, width, height, 0, gl.RGB, gl.UNSIGNED_BYTE, pixels);
-  gl.clearColor (0.3, 0.3, 0.3, 1.0);
-  gl.clear(gl.COLOR_BUFFER_BIT);
   gl.activeTexture(gl.TEXTURE0);
-  gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_BYTE, 0);
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
 }
 
 export function cleanUp(context) {
