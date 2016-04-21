@@ -15,11 +15,9 @@ void main() {
   vec2 clipSpace = zeroToTwo - 1.0;
  
   //  // flip y coordinate so 0px,0px is top left for image
-  //  gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1);
-  
-  gl_Position = vec4(2.0 * a_position + 1.0 * vec2(-1.0, -1.0), 0, 1);
+  gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1);
    
-   // pass the texCoord to the fragment shader
-   // The GPU will interpolate this value between points
-   v_texCoord = a_texCoord;
+  // pass the texCoord to the fragment shader
+  // The GPU will interpolate this value between points
+  v_texCoord = a_texCoord;
 }

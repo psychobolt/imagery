@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import styles from './Canvas.css';
 import * as canvasUtils from '../utils/canvas-utils';
 import { ipcRenderer } from 'electron';
+const { Card, CardHeader, CardMedia } = require('material-ui/Card');
 
 export default class Canvas extends Component {
   
@@ -53,7 +54,14 @@ export default class Canvas extends Component {
     render() {
         const { canvas } = this.props;
         return (
+          // <Card>
+          //   <CardHeader title="Canvas" />
+          //   <CardMedia>
+          //     <canvas id="canvas" className={styles.canvas} width={canvas.width} height={canvas.height} ref="canvas" />
+          //   </CardMedia>
+          // </Card>
           <div className={styles.canvasContainer} style={{marginLeft: -canvas.width/2, marginTop: -canvas.height/2}}>
+            <div></div>
             <canvas id="canvas" className={styles.canvas} width={canvas.width} height={canvas.height} ref="canvas">
             </canvas>
           </div>

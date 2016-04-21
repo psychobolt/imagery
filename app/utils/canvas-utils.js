@@ -74,27 +74,6 @@ export function initContext(canvas, gl) {
   // set the resolution
   const resolutionLocation = gl.getUniformLocation(program, "u_resolution");
   gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
-  
-  //create pixel data buffer
-  const textureBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-    0.0, 0.0,
-    canvas.width, 0.0,
-    0.0, canvas.height,
-    0.0, canvas.height,
-    canvas.width, 0.0,
-    canvas.width, canvas.height
-  ]), gl.STATIC_DRAW);
-  
-  //specify the location of the pixel position data
-  const positionLocation = gl.getAttribLocation(program, "a_position");
-  gl.enableVertexAttribArray(positionLocation);
-  gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-  
-  // bind texture0 as shader texture
-  const textureLocation = gl.getUniformLocation(program, "u_image");
-  gl.uniform1i(textureLocation, 0);
 
   return Object.assign({}, context, {
       program,
@@ -117,21 +96,49 @@ function nextHighestPowerOfTwo(x) {
 
 export function renderCanvasData(context, layer) {
   const gl = context.gl;
+  const program = context.program;
   const width = isPowerOfTwo(layer.width) ? layer.width : nextHighestPowerOfTwo(layer.width);
   const height = isPowerOfTwo(layer.height) ? layer.height : nextHighestPowerOfTwo(layer.height);
   const texture = gl.createTexture();
   const pixels = new Uint8Array(3 * width * height);
+  const offset = width - layer.width;
   let index = 0;
+  let rowIndex = 0;
   layer.pixels.forEach((pixel) => {
-    pixels[index++] = pixel;
-    pixels[index++] = pixel;
-    pixels[index++] = pixel;
+    const remaining = layer.width - index;
+    if (remaining % layer.width === 0) {
+      rowIndex = index / layer.width;
+    }
+    pixels[index++ + rowIndex * offset] = pixel;
+    pixels[index++ + rowIndex * offset] = pixel;
+    pixels[index++ + rowIndex * offset] = pixel;
   });
+  
+  //create pixel data buffer
+  const textureBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, textureBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+    0.0, 0.0,
+    width, 0.0,
+    0.0, height,
+    0.0, height,
+    width, 0.0,
+    width, height
+  ]), gl.STATIC_DRAW);
+  
+  //specify the location of the pixel position data
+  const positionLocation = gl.getAttribLocation(program, "a_position");
+  gl.enableVertexAttribArray(positionLocation);
+  gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+  
+  //config texture
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, width, height, 0, gl.RGB, gl.UNSIGNED_BYTE, pixels);
+  
+  //render
   gl.activeTexture(gl.TEXTURE0);
   gl.drawArrays(gl.TRIANGLES, 0, 6);
 }
