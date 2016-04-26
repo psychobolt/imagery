@@ -1,5 +1,5 @@
 import fs from 'fs';
-import readline from 'readline';
+import readline from 'line-reader';
 
 const IMAGE_FORMATS = {
   //"P1" : "PBM_ASCII",
@@ -14,19 +14,19 @@ class PBMAsciiReader {
     
     constructor(filepath, onLine, onClose) {
         let index = 0;
-        this.reader = readline.createInterface({
-            input : fs.createReadStream(filepath)
-        });
-        this.reader.on('line', (line) => {
+        readline.eachLine(filepath, (line, last) => {
             if (onLine) {
-                onLine(line, index++);
+                onLine(line, index++, last);
+            }
+            if (last || this.error) {
+                onClose(this.error);
+                return false;
             }
         });
-        this.reader.on('close', onClose ? onClose : () => {});
     }
     
-    close() {
-        this.reader.close();
+    close(error) {
+        this.error = error;
     }
     
 }
@@ -55,7 +55,7 @@ export default class ImageFile {
             fs.readSync(fd, header, 0, 2, 0);
             const format = IMAGE_FORMATS[header.toString('utf-8')];
             if (!format) {
-                fs.close(fd, onError('File is not a supported image format. Supported image formats:\n' + JSON.stringify(IMAGE_FORMATS, null, 2)));
+                fs.close(fd, () => onError('File is not a supported image format. Supported image formats:\n' + JSON.stringify(IMAGE_FORMATS, null, 2)));
             } else if (format.indexOf('_ASCII')) {
                 fs.close(fd);
                 const reader = new PBMAsciiReader(this.filepath, (line, index) => {
@@ -70,15 +70,20 @@ export default class ImageFile {
                         } else if (this['load-init']) {
                             this['load-init']();
                             delete this['load-init'];
+                            onLoad(line.split(/\s+/).map((val) => parseInt(val)));
                         } else if (onLoad) {
                             onLoad(line.split(/\s+/).map((val) => parseInt(val)));
                         } else {
-                            reader.close();
+                            reader.close('File is not a supported image format. Supported image formats:\n' + JSON.stringify(IMAGE_FORMATS, null, 2));
                         }
                     }
-                }, () => {
-                    onComplete();
-                    console.log('Loaded image: ' + this.filepath + ' ' + this.width + ' ' + this.height + ' ' + this.colorBits);
+                }, (err) => {
+                    if (err) {
+                        onError(err);
+                    } else {
+                        onComplete();
+                        console.log('Loaded image: ' + this.filepath + ' ' + this.width + ' ' + this.height + ' ' + this.colorBits);
+                    }
                 });
             } else if (format.indexOf('_BIN')) {
                 fs.close(fd, () => {
@@ -86,7 +91,7 @@ export default class ImageFile {
                     console.log('Loaded image: ' + this.filepath + ' ' + this.width + ' ' + this.height + ' ' + this.colorBits);
                 });
             } else {
-                fd.close(fd, onError('Unexpected error'));
+                fd.close(fd, () => onError('Unexpected error'));
             }
         });
     }

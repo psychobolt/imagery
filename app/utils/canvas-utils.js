@@ -94,8 +94,22 @@ function nextHighestPowerOfTwo(x) {
   return x + 1;
 }
 
-export function renderCanvasData(context, layer) {
+export function renderLayer(context, layer, layerIndex) {
+  if (layerIndex > 31) {
+    console.error("Only up to 32 layers per Canvas is supported");
+    return;
+  }
   const gl = context.gl;
+  
+  // apply filters
+  Object.keys(layer.filters).forEach((type) => {
+    const options = layer.filters[type];
+    if (!options.disabled) {
+      layer = options.filter(layer, context, options);
+    }
+  });
+  
+  const register = gl['TEXTURE' + layerIndex];
   const program = context.program;
   const width = isPowerOfTwo(layer.width) ? layer.width : nextHighestPowerOfTwo(layer.width);
   const height = isPowerOfTwo(layer.height) ? layer.height : nextHighestPowerOfTwo(layer.height);
@@ -104,6 +118,8 @@ export function renderCanvasData(context, layer) {
   const offset = width - layer.width;
   let index = 0;
   let rowIndex = 0;
+  
+  //map pixels for grayscale
   layer.pixels.forEach((pixel) => {
     const remaining = layer.width - index;
     if (remaining % layer.width === 0) {
@@ -139,8 +155,26 @@ export function renderCanvasData(context, layer) {
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, width, height, 0, gl.RGB, gl.UNSIGNED_BYTE, pixels);
   
   //render
-  gl.activeTexture(gl.TEXTURE0);
+  gl.clearColor(0.0, 0.0, 0.0, 1.0);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.activeTexture(register);
   gl.drawArrays(gl.TRIANGLES, 0, 6);
+  
+  // cleanup
+  gl.deleteBuffer(textureBuffer);
+  gl.deleteTexture(texture);
+}
+
+export function getPixels(canvas) {
+  const gl = canvas.context.gl;
+  let pixels = new Uint8Array(4 * canvas.width * canvas.height);
+  gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+  let rawPixels = [];
+  for (let i = 0; i < pixels.length; i+=4) {
+    const pixel = Math.round((pixels[i] + pixels[i+1] + pixels[i+2]) / 3);
+    rawPixels.push(pixel);
+  }
+  return rawPixels;
 }
 
 export function cleanUp(context) {
