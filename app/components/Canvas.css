@@ -1,0 +1,11 @@
+.canvasContainer {
+    position: absolute;
+    z-index: 1;
+}
+
+.canvas {
+    display: block;
+    margin: auto;
+    background-color: white;
+    cursor: pointer;
+}
