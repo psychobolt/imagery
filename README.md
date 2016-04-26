@@ -1,6 +1,6 @@
 # Imagery
 
-An application for applying filters on images. The application is built using web stack framework such as WebGL, Javascript, HTML5. Imagery is an desktop application, powered by an set of NodeJS frameworks: Electron, React, and Redux.
+An application for applying filters on images. The application is built using a web stack framework such as WebGL, Javascript, HTML5. Imagery is a desktop application, powered by an set of NodeJS frameworks: Electron, React, and Redux.
 
 ## Building
 
@@ -19,20 +19,23 @@ npm package
 
 Coming Soon.
 
+## Download
+
+Coming soon.
 
 ## Tutorial
 
-1. Start up the application, but launching the binary. e.g Imagery.exe (Windows)
+1. Start up the application by opening the binary file. e.g Imagery.exe (Windows)
 2. Maximize the window.
 3. Open a image file: File > Open (See supported formats in Features section)
 4. Sidebar should be populated. Apply a filter by checkbox. 
-5. Click on down arrow icon to expand the filter.
+5. Click on the down arrow icon to expand the filter.
 6. Change the settings.
 7. Open another image file. (A new image will appear on top of current)
 8. Select the image titlebar and drag it to available room.
 9. Change the image selection, by selecting on the image. (Sidebar settings are image context sensitive)
 
-> Image processing and the UI share the same process. Some filters such as, Histogram Local Equalization may cause unresponsiveness. In Phase 2, there will be a redesign of the current architecture so image processing happens in a background process.
+> Image processing and the UI share the same process. Some filters such as Histogram Local Equalization may cause unresponsiveness. In Phase 2, there will be a redesign of the current architecture so image processing happens in a background process.
 
 ## Features
 
