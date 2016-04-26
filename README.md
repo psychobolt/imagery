@@ -1,6 +1,6 @@
 # Imagery
 
-An application for applying filters on images. The application is built using web stack framework such as WebGL, Javascript, HTML5. Imagery an desktop application, powered by an set of NodeJS frameworks: Electron, React, and Redux.
+An application for applying filters on images. The application is built using web stack framework such as WebGL, Javascript, HTML5. Imagery is an desktop application, powered by an set of NodeJS frameworks: Electron, React, and Redux.
 
 ## Building
 
@@ -11,7 +11,6 @@ An application for applying filters on images. The application is built using we
 3. Then run the following commands
 ```
 cd imagery/
-npm config set msvs_version 2015 --global
 npm install
 npm package
 ```
@@ -24,7 +23,7 @@ Coming Soon.
 ## Tutorial
 
 1. Start up the application, but launching the binary. e.g Imagery.exe (Windows)
-2. Click on maximize window toolbar.
+2. Maximize the window.
 3. Open a image file: File > Open (See supported formats in Features section)
 4. Sidebar should be populated. Apply a filter by checkbox. 
 5. Click on down arrow icon to expand the filter.
@@ -39,7 +38,8 @@ Coming Soon.
 
 Supported image formats: PGM ASCII (P2)
 
-> Development is ongoing to support various formats. Currently only PGM ASCII is supported. You can convert any image to PGM ASCII. 
+> Development is ongoing to support various formats. Currently only PGM ASCII is supported. You can convert any image to PGM ASCII with instructions bellow.
+ 
 1. Download and install Imagemagick. http://www.imagemagick.org/script/binary-releases.php
 2. Run command ```convert image.png image.pgm```
 3. Download and compile the program "pgmb_to_pgma.cpp" for your platform. e.g. ```g++ pgmb_to_pgma.cpp -o pgmb_to_pgma.exe``` http://people.sc.fsu.edu/~jburkardt/cpp_src/pgmb_to_pgma/pgmb_to_pgma.html
