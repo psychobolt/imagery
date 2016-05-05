@@ -84,7 +84,7 @@ export const canvasProps = {
   left: 10,
   width: 640, 
   height: 320, 
-  title: "<No Content> (640 x 320)",
+  title: "<No Content>",
   layers: []
 };
 

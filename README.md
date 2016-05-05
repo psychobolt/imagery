@@ -4,20 +4,14 @@ An application for applying filters on images. The application is built using a 
 
 ## Building
 
-### Windows
-
-1. To build on Windows, you must install NodeJS version v4+. 
-2. Please follow the environment set-up instructions: https://github.com/nodejs/node-gyp/issues/802
+1. Install NodeJS version v4+ LTS.
+2. Install node-gyp: ```npm install -g node-gyp```. Please see https://www.npmjs.com/package/node-gyp for installing dependencies.
 3. Then run the following commands
 ```
 cd imagery/
 npm install
-npm package
+npm run package # builds and packages the application on the your platform
 ```
-
-### OSX
-
-Coming Soon.
 
 ## Download
 

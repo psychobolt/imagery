@@ -4,7 +4,7 @@ import SidebarGroup from '../SidebarGroup';
 import SelectField from 'material-ui/SelectField';
 import MenuItem from 'material-ui/MenuItem';
 import TextField from 'material-ui/TextField';
-import Filter from './Filter';
+import MaskFilter from './MaskFilter';
 import * as Filters from './';
 
 const styles = {
@@ -23,7 +23,7 @@ const styles = {
   }
 }
 
-export default class Histogram extends Filter {
+export default class Histogram extends MaskFilter {
   
   constructor(props, content) {
     super(props, content);
@@ -47,6 +47,15 @@ export default class Histogram extends Filter {
     this.setState(options);
   }
   
+  onMatchingChange(event, index, canvasId) {
+    const { canvases } = this.props;
+    const options = {canvasId};
+    this.applyFilter(Object.assign({}, this.state, Object.assign({}, options, {
+      match: canvases.find((canvas) => canvas.id === canvasId)
+    })));
+    this.setState(options);
+  }
+  
   onDimensionChange(event, dimension) {
     const { layer } = this.props;
     let global = false;
@@ -55,23 +64,7 @@ export default class Histogram extends Filter {
       dimension = this.state.dimension;
     }
     let options = {dimension, global};
-    dimension = parseInt(dimension);
-    if (dimension && Number.isInteger(dimension)) {
-      if (dimension % 2 === 0) {
-        options = Object.assign({}, options, {dimension: dimension + 1});
-      }
-      this.applyFilter(Object.assign({}, this.state, options));
-    }
-    this.setState(options);
-  }
-  
-  onMatchingChange(event, index, canvasId) {
-    const { canvases } = this.props;
-    const options = {canvasId};
-    this.applyFilter(Object.assign({}, this.state, Object.assign({}, options, {
-      match: canvases.find((canvas) => canvas.id === canvasId)
-    })));
-    this.setState(options);
+    super.onDimensionChange(event, options);
   }
   
   render() {

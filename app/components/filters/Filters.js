@@ -5,6 +5,9 @@ import SpatialResolution from './SpatialResolution';
 import GrayLevel from './GrayLevel';
 import GrayScale from './GrayScale';
 import Histogram from './Histogram';
+import NoiseReduce from './NoiseReduce';
+import Sharpen from './Sharpen'
+import BitPlanes from './BitPlanes';
 
 export default class Filter extends Component {
   
@@ -18,6 +21,9 @@ export default class Filter extends Component {
         <GrayLevel canvas={canvas} layer={layer} applyFilter={applyFilter} />
         <GrayScale canvas={canvas} layer={layer} applyFilter={applyFilter} />
         <Histogram canvas={canvas} canvases={canvases} layer={layer} applyFilter={applyFilter} />
+        <NoiseReduce canvas={canvas} canvases={canvases} layer={layer} applyFilter={applyFilter} />
+        <Sharpen canvas={canvas} canvases={canvases} layer={layer} applyFilter={applyFilter} />
+        <BitPlanes canvas={canvas} canvases={canvases} layer={layer} applyFilter={applyFilter} />
       </List>
     );
   }
