@@ -133,8 +133,10 @@ function contraharmonicMean(pixel, neighbors, maskDimension, order) {
 }
 
 function alphaTrimmedMean(pixel, neighbors, maskDimension, constantD) {
-  const total = neighbors.reduce((prev, value) => prev + value)
-  return (1 / (maskDimension * maskDimension - constantD)) * total >> 0;
+  const sorted = [pixel, ...neighbors].sort();
+  const A = Math.floor(constantD / 2);
+  const total = sorted.slice(A, sorted.length - A).reduce((prev, value) => prev + value);
+  return (total / (maskDimension * maskDimension - (2 * A)))  >> 0;
 }
 
 function laplace(pixel, neighbors, maskDimension) {

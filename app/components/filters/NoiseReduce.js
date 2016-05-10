@@ -59,10 +59,9 @@ export default class NoiseReduce extends MaskFilter {
   
   onOrderChange(event, order) {
     let options = {order};
-    order = parseInt(order);
-    if (order && Number.isInteger(order)) {
-      options = {order};
-      this.applyFilter(Object.assign({}, this.state, options));
+    order = parseFloat(order);
+    if (order && !Number.isNaN(order)) {
+      this.applyFilter(Object.assign({}, this.state, {order}));
     }
     this.setState(options);
   }
@@ -117,7 +116,7 @@ export default class NoiseReduce extends MaskFilter {
           disabled={this.state.disabled} />
       } />,
       <ListItem key="constantD" type="number" disabled={true} style={this.state.method === 10 ? null : {display: 'none'}} primaryText={
-        <TextField id="constant_d" style={styles.input} value={this.state.constantD} onChange={this.onConstantDChange} floatingLabelText='Constant "d"' 
+        <TextField id="constant_d" style={styles.input} value={this.state.constantD} onChange={this.onConstantDChange} floatingLabelText='Alpha "a"' 
           disabled={this.state.disabled} />
       } />
     ];
