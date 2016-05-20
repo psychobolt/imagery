@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, crashReporter, shell, dialog } from 'electron';
+import { app, BrowserWindow, Menu, shell } from 'electron';
 import ImageFile from './app/utils/ImageFile';
 
 let menu;
@@ -6,10 +6,9 @@ let template;
 let mainWindow = null;
 let canvasId = 0;
 
-crashReporter.start();
 
 if (process.env.NODE_ENV === 'development') {
-  require('electron-debug')();
+  require('electron-debug')(); // eslint-disable-line global-require
 }
 
 
@@ -108,7 +107,7 @@ app.on('ready', () => {
         label: 'Reload',
         accelerator: 'Command+R',
         click() {
-          mainWindow.restart();
+          mainWindow.webContents.reload();
         }
       }, {
         label: 'Toggle Full Screen',
@@ -215,7 +214,7 @@ app.on('ready', () => {
         label: '&Reload',
         accelerator: 'Ctrl+R',
         click() {
-          mainWindow.restart();
+          mainWindow.webContents.reload();
         }
       }, {
         label: 'Toggle &Full Screen',
