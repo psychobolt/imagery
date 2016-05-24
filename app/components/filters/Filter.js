@@ -21,7 +21,8 @@ export default class Filter extends Component {
   }
   
   applyFilter(options) {
-    const { canvas, layer, applyFilter } = this.props;
+    const { canvas, layer, applyFilter, index } = this.props;
+    options = Object.assign({}, options, {index});
     applyFilter(canvas, layer, options);
   }
   

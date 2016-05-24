@@ -1,4 +1,4 @@
-import React, {Component} from 'react';
+import React from 'react';
 import {ListItem} from 'material-ui/List';
 import Slider from 'material-ui/Slider';
 import SelectField from 'material-ui/SelectField';

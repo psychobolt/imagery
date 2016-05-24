@@ -5,6 +5,7 @@ import * as canvasUtils from '../utils/canvas-utils';
 import { ipcRenderer } from 'electron';
 import { Card, CardHeader, CardMedia } from 'material-ui/Card';
 import Paper from 'material-ui/Paper';
+import PubSub from 'pubsub-js';
 
 export default class Canvas extends Component {
   
@@ -12,6 +13,7 @@ export default class Canvas extends Component {
       super(props, content);
       this.onLoadData = this.onLoadData.bind(this);
       this.onLoadComplete = this.onLoadComplete.bind(this);
+      this.onCanvasSelect = this.onCanvasSelect.bind(this);
     }
   
     componentDidMount() {
@@ -49,9 +51,26 @@ export default class Canvas extends Component {
       }
       renderLayers(canvas);
     }
+    
+    onCanvasSelect(event) {
+      const {canvas, onSelect} = this.props;
+      if (!canvas.selected) {
+        onSelect(canvas);
+      }
+      const rect = this.refs.canvas.getBoundingClientRect();
+      const xPosition = event.clientX - rect.left;
+      const yPosition = event.clientY - rect.top;
+      PubSub.publish('CANVAS_' + canvas.id + '_EVENT.SELECT_POS', {
+        xPosition,
+        yPosition 
+      });
+      PubSub.publish('CANVAS_' + canvas.id + '_EVENT.SELECT_COLOR', {
+       targetColor: canvasUtils.getPixel(canvas, xPosition, yPosition)
+      });
+    }
   
     render() {
-        const { canvas, connectDragPreview, connectDragSource, isDragging, onSelect } = this.props;
+        const { canvas, connectDragPreview, connectDragSource, isDragging } = this.props;
         return connectDragPreview(
           <div className={styles.canvasContainer} selected={canvas.selected}
             style={{
@@ -69,7 +88,7 @@ export default class Canvas extends Component {
                     ref={(cardHeader) => connectDragSource(findDOMNode(cardHeader))}
                     titleStyle={{textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap"}} />
                   <CardMedia>
-                    <canvas id="canvas" className={styles.canvas} onClick={() => onSelect(canvas)}
+                    <canvas id="canvas" className={styles.canvas} onClick={this.onCanvasSelect}
                       width={canvas.width} height={canvas.height} ref="canvas" />
                   </CardMedia>
                 </Card>

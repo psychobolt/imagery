@@ -32,9 +32,30 @@ function subsample(layer, ratio) {
   });
 }
 
-function getNeighborPixels(layer, index, total, dimension) {
+function getNeighborColors(layer, index, total, dimension, callback) {
   const half = (dimension - 1) / 2;
   let pixels = [];
+  let rowIndex = index / layer.width >> 0; 
+  callback = callback || function (pixel) {};
+  for (let y = -half; y <= half; y++) {
+    const rowOffset = y * layer.width;
+    const leftOffset = rowOffset + index - half;
+    const rowTarget = y + rowIndex;
+    for (let x = leftOffset; x < leftOffset + dimension; x++) {
+      let row = x / layer.width >> 0;
+      const pixel = layer.pixels[x]; 
+      if (row === rowTarget && 0 <= x && x < total && x != index) {
+        pixels.push(pixel);
+      }
+      callback(pixel);
+    }
+  }
+  return pixels;
+}
+
+function getNeighborPixels(layer, index, total, dimension) {
+  const half = (dimension - 1) / 2;
+  let pixelsMap = [];
   let rowIndex = index / layer.width >> 0; 
   for (let y = -half; y <= half; y++) {
     const rowOffset = y * layer.width;
@@ -43,11 +64,22 @@ function getNeighborPixels(layer, index, total, dimension) {
     for (let x = leftOffset; x < leftOffset + dimension; x++) {
       let row = x / layer.width >> 0;
       if (row === rowTarget && 0 <= x && x < total && x != index) {
-        pixels.push(layer.pixels[x]);
+        pixelsMap.push({
+          pixel: x, 
+          color: layer.pixels[x]
+        });
       }
     }
   }
-  return pixels;
+  return pixelsMap;
+}
+
+function getNeighborhoodColors(layer, index, total, dimension) {
+  const neighborhood = [];
+  getNeighborColors(layer, index, layer.pixels.length, 3, (pixel) => {
+    neighborhood.push(pixel);
+  });
+  return neighborhood;
 }
 
 function padRows(pixels, rows, cols) {
@@ -169,7 +201,7 @@ function getHistogram(pixels, colorBits, total, target) {
 
 function getHistogramValue(layer, index, total, subtotal, dimension) {
   const target = layer.pixels[index];
-  let pixels = getNeighborPixels(layer, index, total, dimension);
+  let pixels = getNeighborColors(layer, index, total, dimension);
   pixels.push(layer.pixels[index]);
   const histogram = getHistogram(pixels, layer.colorBits, subtotal, target);
   return histogram[target];
@@ -218,7 +250,7 @@ function bilinear(layer, options) {
   layer = Object.assign({}, layer, {pixels, width, height});
   for (let i = 0; i < pixels.length; i++) {
     if (pixels[i] == null) {
-      const neighbors = getNeighborPixels(layer, i, pixels.length, 3);
+      const neighbors = getNeighborColors(layer, i, pixels.length, 3);
       let sum = 0;
       let count = 0;
       neighbors.forEach((pixel) => {
@@ -244,10 +276,10 @@ export function spatialResolution(layer, context, options) {
 }
 
 export function grayLevel(layer, context, options) {
-  const colors = Math.pow(2, options.level);
-  const colorsBits = colors - 1;
+  const colorsBits = Math.pow(2, options.level) - 1;
+  const ratio = Math.round(255 / colorsBits);
   let pixels = layer.pixels.map((pixel) => {
-    return Math.round(pixel / layer.colorBits * colorsBits) * 255;
+    return Math.round(pixel / layer.colorBits * colorsBits) * ratio;
   });
   return Object.assign({}, layer, {pixels});
 }
@@ -333,7 +365,7 @@ export function noiseReduce(layer, context, options) {
     const colOffset = offset + y * layer.width;
     for (let x = colOffset; x < colOffset + width; x++) {
       let pixel;
-      const neighbors = getNeighborPixels(layer, x, layer.pixels.length, options.dimension);
+      const neighbors = getNeighborColors(layer, x, layer.pixels.length, options.dimension);
       if (options.method == 1) {
         pixel = blur(layer.pixels[x], neighbors, options.dimension);
       } else if (options.method == 2) {
@@ -373,7 +405,7 @@ export function sharpen(layer, context, options) {
     const colOffset = offset + y * layer.width;
     for (let x = colOffset; x < colOffset + width; x++) {
       let pixel;
-      const neighbors = getNeighborPixels(layer, x, layer.pixels.length, options.dimension);
+      const neighbors = getNeighborColors(layer, x, layer.pixels.length, options.dimension);
       if (options.method == 1) {
         pixel = laplace(layer.pixels[x], neighbors, options.dimension);
       } else if (options.method == 2) {
@@ -403,4 +435,318 @@ export function bitPlanes(layer, context, options) {
     return parseInt(result, 2);
   });
   return Object.assign({}, layer, {pixels});
+}
+
+export function floodfill(layer, context, options) {
+  if (options.xPosition === '' || options.yPosition === '') {
+    return layer;
+  }
+  const pixel = options.xPosition + options.yPosition * layer.width; //TODO canvas width
+  const pixels = [...layer.pixels];
+  const initialColor = pixels[pixel];
+  let queue = [pixel];
+  let visited = {};
+  layer = Object.assign({}, layer, {pixels});
+  pixels[pixel] = options.targetColor;
+  while (queue.length) {
+    const head = queue[0];
+    if (!visited[head]) {
+      const neighbors = getNeighborPixels(layer, head, pixels.length, 3);
+      neighbors.forEach((neighbor) => {
+        if (!visited[neighbor.pixel] && neighbor.color === initialColor) {
+          pixels[neighbor.pixel] = options.targetColor;
+          queue.push(neighbor.pixel);
+        }
+      });
+    }
+    visited[queue.shift()] = true;
+  }
+  return layer;
+}
+
+function isBoundaryPixel(layer, element, total, initialColor) {
+  if (element.color === initialColor) {
+    const neighbors = getNeighborColors(layer, element.pixel, total, 3);
+    if (neighbors.find((neighbor) => neighbor !== initialColor) !== undefined) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function boundaryFill(layer, context, options) {
+  if (options.xPosition === '' || options.yPosition === '') {
+    return layer;
+  }
+  const pixels = [...layer.pixels];
+  const initialPixel = options.xPosition + options.yPosition * layer.width; //TODO canvas width
+  const initialColor = pixels[initialPixel];
+  let aux = [initialPixel];
+  let visited = {};
+  while (aux.length) {
+    const head = aux[0];
+    if (!visited[head]) {
+      const neighbors = getNeighborPixels(layer, head, layer.pixels.length, 3);
+      neighbors.forEach((neighbor) => {
+        if (!visited[neighbor.pixel]) {
+          if (isBoundaryPixel(layer, neighbor, layer.pixels.length, initialColor)) {
+            pixels[neighbor.pixel] = options.targetColor;
+          } else {
+            aux.push(neighbor.pixel);
+          }
+        }
+      });
+    }
+    visited[aux.shift()] = true;
+  }
+  return Object.assign({}, layer, {pixels});
+}
+
+function getBoundaryPixels(layer, options) {
+  let queue = []
+  if (options.xPosition === '' || options.yPosition === '') {
+    return queue;
+  }
+  const initialPixel = options.xPosition + options.yPosition * layer.width; //TODO canvas width
+  const initialColor = layer.pixels[initialPixel];
+  let aux = [initialPixel];
+  let visited = {};
+  while (aux.length) {
+    const head = aux[0];
+    if (!visited[head]) {
+      const neighbors = getNeighborPixels(layer, head, layer.pixels.length, 3);
+      neighbors.forEach((neighbor) => {
+        if (!visited[neighbor.pixel]) {
+          if (isBoundaryPixel(layer, neighbor, layer.pixels.length, initialColor)) {
+            queue.push(neighbor.pixel);
+          } else {
+            aux.push(neighbor.pixel);
+          }
+        }
+      });
+    }
+    visited[aux.shift()] = true;
+  }
+  return queue;
+}
+
+export function erosion(layer, context, options) {
+  if (options.xPosition === '' || options.yPosition === '') {
+    return layer;
+  }
+  let queue = getBoundaryPixels(layer, options);
+  let visited = {};
+  let iterations = options.iterations;
+  const pixels = [...layer.pixels];
+  const initialPixel = options.xPosition + options.yPosition * layer.width; //TODO canvas width
+  const initialColor = layer.pixels[initialPixel];
+  layer = Object.assign({}, layer, {pixels});
+  while (iterations) {
+    queue.push(null);
+    let head = queue[0];
+    while (head !== null) {
+      if (!visited[head]) {
+        const neighbors = getNeighborPixels(layer, head, pixels.length, 3);
+        neighbors.forEach((neighbor) => {
+          if (!visited[neighbor.pixel] && neighbor.color === initialColor) {
+            pixels[neighbor.pixel] = options.targetColor;
+            queue.push(neighbor.pixel);
+          }
+        });
+      }
+      pixels[head] = options.targetColor;
+      queue.shift();
+      if (head) {
+        visited[head] = true;
+      }
+      head = queue[0];
+    }
+    queue.shift();
+    if (head) {
+      visited[head] = true;
+    }
+    iterations--;
+  }
+  return layer;
+}
+
+export function distanceFill(layer, context, options) {
+  if (options.xPosition === '' || options.yPosition === '') {
+    return layer;
+  }
+  let queue = getBoundaryPixels(layer, options);
+  let visited = {};
+  let distance = options.targetColor;
+  const pixels = [...layer.pixels];
+  const initialPixel = options.xPosition + options.yPosition * layer.width; //TODO canvas width
+  const initialColor = layer.pixels[initialPixel];
+  layer = Object.assign({}, layer, {pixels});
+  queue.forEach((pixel) => {
+    pixels[pixel] = distance;
+  });
+  while (queue.length) {
+    distance = Math.min(layer.colorBits, distance + options.scaleFactor);
+    queue.push(null);
+    let head = queue[0];
+    while (head !== null) {
+      if (!visited[head]) {
+        const neighbors = getNeighborPixels(layer, head, pixels.length, 3);
+        neighbors.forEach((neighbor) => {
+          if (!visited[neighbor.pixel] && neighbor.color === initialColor) {
+            pixels[neighbor.pixel] = distance;
+            queue.push(neighbor.pixel);
+          }
+        });
+      }
+      queue.shift();
+      if (head) {
+        visited[head] = true;
+      }
+      head = queue[0];
+    }
+    queue.shift();
+    if (head) {
+      visited[head] = true;
+    }
+  }
+  return layer;
+}
+
+/*
+* p9 (0) p2 (1) p3 (2)
+* p8 (3) p1 (4) p4 (5)
+* p7 (6) p6 (7) p5 (8)
+*/
+function getTransitionCount(neighborhood, initialColor) {
+  let count = 0;
+  // p2 p3
+  if (neighborhood[1] === initialColor && neighborhood[2] !== initialColor) {
+    count++;
+  }
+  // p3 p4
+  if (neighborhood[2] === initialColor && neighborhood[5] !== initialColor) {
+    count++;
+  }
+  // p4 p5
+  if (neighborhood[5] === initialColor && neighborhood[8] !== initialColor) {
+    count++;
+  }
+  // p5 p6
+  if (neighborhood[8] === initialColor && neighborhood[7] !== initialColor) {
+    count++;
+  }
+  // p6 p7
+  if (neighborhood[7] === initialColor && neighborhood[6] !== initialColor) {
+    count++;
+  }
+  // p7 p8
+  if (neighborhood[6] === initialColor && neighborhood[3] !== initialColor) {
+    count++;
+  }
+  // p8 p9
+  if (neighborhood[3] === initialColor && neighborhood[0] !== initialColor) {
+    count++;
+  }
+  return count;
+}
+
+function zhangSuen(layer, options) {
+  const initialPixel = options.xPosition + options.yPosition * layer.width; //TODO canvas width
+  const initialColor = layer.pixels[initialPixel];
+  let pixels = [...layer.pixels];
+  layer = Object.assign({}, layer, {pixels});
+  let changed = false;
+  do {
+    pixels.forEach((pixel, index) => {
+      if (pixel === initialColor) {
+        /*
+        * p9 (0) p2 (1) p3 (2)
+        * p8 (3) p1 (4) p4 (5)
+        * p7 (6) p6 (7) p5 (8)
+        */
+        const neighborhood = getNeighborhoodColors(layer, index, pixels.length, 3);
+        const nonInitialColors = neighborhood.reduce((prev, neighbor) => neighbor === initialColor ? prev : ++prev, 0);
+        if ((2 <= nonInitialColors && nonInitialColors <= 6) 
+            && getTransitionCount(neighborhood, initialColor) === 1
+            // p2 or p4 or p6 
+            && (neighborhood[1] === initialColor || neighborhood[5] === initialColor || neighborhood[7] === initialColor)
+            // p4 or p6 or p8
+            && (neighborhood[5] === initialColor || neighborhood[7] === initialColor || neighborhood[3] === initialColor)) {
+          pixels[index] = options.targetColor;
+          changed = true;
+        }
+      }
+    });
+    if (changed) {
+      changed = false;
+      pixels.forEach((pixel, index) => {
+        if (pixel === initialColor) {
+          /*
+          * p9 (0) p2 (1) p3 (2)
+          * p8 (3) p1 (4) p4 (5)
+          * p7 (6) p6 (7) p5 (8)
+          */
+          const neighborhood = getNeighborhoodColors(layer, index, pixels.length, 3);
+          const nonInitialColors = neighborhood.reduce((prev, neighbor) => neighbor === initialColor ? prev : ++prev, 0);
+          if ((2 <= nonInitialColors && nonInitialColors <= 6) 
+              && getTransitionCount(neighborhood, initialColor) === 1
+              // p2 or p4 or p8 
+              && (neighborhood[1] === initialColor || neighborhood[5] === initialColor || neighborhood[3] === initialColor)
+              // p2 or p6 or p8
+              && (neighborhood[1] === initialColor || neighborhood[7] === initialColor || neighborhood[3] === initialColor)) {
+            pixels[index] = options.targetColor;
+            changed = true;
+          }
+        }
+      });
+    }
+  } while (changed);
+  return layer;
+}
+
+function zhangSuenBFS(layer, options) {
+  let queue = getBoundaryPixels(layer, options);
+  let visited = {};
+  const pixels = [...layer.pixels];
+  const initialPixel = options.xPosition + options.yPosition * layer.width; //TODO canvas width
+  const initialColor = layer.pixels[initialPixel];
+  layer = Object.assign({}, layer, {pixels});
+  while (queue.length) {
+    queue.push(null);
+    let head = queue[0];
+    while (head !== null) {
+      if (!visited[head]) {
+        const neighbors = getNeighborPixels(layer, head, pixels.length, 3);
+        neighbors.forEach((neighbor) => {
+          if (!visited[neighbor.pixel] && 
+            neighbor.color === initialColor) {
+            //pixels[neighbor.pixel] = distance;
+            queue.push(neighbor.pixel);
+          }
+        });
+     }
+     queue.shift();
+      if (head) {
+        visited[head] = true;
+      }
+      head = queue[0];
+    }
+    queue.shift();
+    if (head) {
+      visited[head] = true;
+    }
+  }
+  return layer;
+}
+
+export function skeletonization(layer, context, options) {
+  if (options.xPosition === '' || options.yPosition === '') {
+    return layer;
+  }
+  if (options.method === 1) {
+    return zhangSuen(layer, options);
+  } else if (options.method === 2) {
+    return zhangSuenBFS(layer, options);
+  }
+  return layer;
 }

@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React from 'react';
 import {ListItem} from 'material-ui/List';
 import SidebarGroup from '../SidebarGroup';
 import SelectField from 'material-ui/SelectField';
@@ -47,13 +47,14 @@ export default class Sharpen extends MaskFilter {
   }
   
   onMaskFactorChange(event, maskFactor) {
-    const options = {maskFactor};
+    let options = {maskFactor};
     maskFactor = parseInt(maskFactor);
     if (maskFactor < 1) {
       maskFactor = 1;
+      options = {maskFactor};
     }
     if (maskFactor && Number.isInteger(maskFactor)) {
-      this.applyFilter(Object.assign({}, this.state, options, {maskFactor}));
+      this.applyFilter(Object.assign({}, this.state, options));
     }
     this.setState(options);
   }

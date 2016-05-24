@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React from 'react';
 import {ListItem} from 'material-ui/List';
 import Toggle from 'material-ui/toggle';
 import SidebarGroup from '../SidebarGroup';

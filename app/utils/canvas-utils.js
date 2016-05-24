@@ -1,5 +1,6 @@
 import vertexShader from '../shaders/image-spatial.vert';
 import fragmentShader from '../shaders/image-raster.frag';
+import _ from 'lodash';
 
 function isError(gl, shader) {
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
@@ -102,8 +103,8 @@ export function renderLayer(context, layer, layerIndex) {
   const gl = context.gl;
   
   // apply filters
-  Object.keys(layer.filters).forEach((type) => {
-    const options = layer.filters[type];
+  const filters = _.values(layer.filters).sort((a, b) => a.index - b.index);
+  filters.forEach((options) => {
     if (!options.disabled) {
       layer = options.filter(layer, context, options);
     }
@@ -175,6 +176,13 @@ export function getPixels(canvas) {
     rawPixels.push(pixel);
   }
   return rawPixels;
+}
+
+export function getPixel(canvas, x, y) {
+  const gl = canvas.context.gl;
+  let pixel = new Uint8Array(4);
+  gl.readPixels(x, canvas.height - y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+  return pixel[0];
 }
 
 export function cleanUp(context) {
