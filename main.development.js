@@ -2,6 +2,7 @@ import { app, BrowserWindow, Menu, shell, dialog } from 'electron';
 import ImageFile from './app/utils/ImageFile';
 
 let menu;
+let commands;
 let template;
 let mainWindow = null;
 let canvasId = 0;
@@ -16,6 +17,97 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
+function createMenuTemplate(commands) {
+  let fileMenus = [{
+    label: '&File',
+    submenu: [{
+      label: '&Open',
+      accelerator: commands.open,
+      click() {
+        let filepaths = dialog.showOpenDialog({
+          properties: ['openFile']
+        });
+        if (filepaths) {
+          const id = ++canvasId;
+          const filepath = filepaths[0];
+          const imageFile = new ImageFile(filepath);
+          imageFile.on('load-init', () => mainWindow.webContents.send('load-image', {id, imageFile})); 
+          imageFile.on('load-data', (pixels) => mainWindow.webContents.send('load-data', {id, filepath, pixels}));
+          imageFile.on('load-complete', () => mainWindow.webContents.send('load-complete', {id, filepath}));
+          imageFile.on('load-error', (message) => 
+            dialog.showMessageBox({
+              type: 'error',
+              title: 'Failed to load image',
+              buttons: ['Close'],
+              message
+            })
+          );
+          imageFile.load();
+        } else {
+          console.error('Failed to load image!');
+        }
+      }
+    }]
+  }];
+  if (process.platform !== 'darwin') {
+    fileMenus.push[{
+      label: '&Close',
+      accelerator: 'Ctrl+W',
+      click() {
+        mainWindow.close();
+      }
+    }];
+  } 
+  return [
+    ...fileMenus, 
+    {
+      label: '&View',
+      submenu: (process.env.NODE_ENV === 'development') ? [{
+      label: '&Reload',
+      accelerator: commands.reload,
+      click() {
+        mainWindow.webContents.reload();
+      }
+    }, {
+      label: 'Toggle &Full Screen',
+      accelerator: commands.fullscreen,
+      click() {
+        mainWindow.setFullScreen(!mainWindow.isFullScreen());
+      }
+    }, {
+      label: 'Toggle &Developer Tools',
+      accelerator: commands.devTools,
+      click() {
+        mainWindow.toggleDevTools();
+      }
+    }] : [{
+      label: 'Toggle &Full Screen',
+      accelerator: commands.fullscreen,
+      click() {
+        mainWindow.setFullScreen(!mainWindow.isFullScreen());
+      }
+    }]
+  }, {
+    label: 'Help',
+    role: 'help',
+    submenu: [{
+      label: 'Learn More',
+      click() {
+        shell.openExternal('https://github.com/psychobolt/imagery');
+      }
+    }, {
+      label: 'Documentation',
+      click() {
+        shell.openExternal('https://github.com/psychobolt/imagery/blob/master/README.md');
+      }
+    }, {
+      label: 'Search Issues',
+      click() {
+        shell.openExternal('https://github.com/psychobolt/imagery/issues');
+      }
+    }]
+  }];
+}
 
 app.on('ready', () => {
   mainWindow = new BrowserWindow({
@@ -38,12 +130,21 @@ app.on('ready', () => {
   if (process.env.NODE_ENV === 'development') {
     mainWindow.openDevTools();
   }
-
+  
   if (process.platform === 'darwin') {
+    commands = {
+      open: 'Command+O',
+      hide: 'Command+H',
+      quit: 'Command+Q',
+      reload: 'Command+R',
+      fullscreen: 'Ctrl+Command+F',
+      devTools: 'Alt+Command+I'
+    };
+    template = createMenuTemplate(commands);
     template = [{
-      label: 'Electron',
+      label: 'Imagery',
       submenu: [{
-        label: 'About ElectronReact',
+        label: 'About Imagery',
         selector: 'orderFrontStandardAboutPanel:'
       }, {
         type: 'separator'
@@ -53,8 +154,8 @@ app.on('ready', () => {
       }, {
         type: 'separator'
       }, {
-        label: 'Hide ElectronReact',
-        accelerator: 'Command+H',
+        label: 'Hide Imagery',
+        accelerator: commands.hide,
         selector: 'hide:'
       }, {
         label: 'Hide Others',
@@ -67,193 +168,24 @@ app.on('ready', () => {
         type: 'separator'
       }, {
         label: 'Quit',
-        accelerator: 'Command+Q',
+        accelerator: commands.quit,
         click() {
           app.quit();
         }
       }]
-    }, {
-      label: 'Edit',
-      submenu: [{
-        label: 'Undo',
-        accelerator: 'Command+Z',
-        selector: 'undo:'
-      }, {
-        label: 'Redo',
-        accelerator: 'Shift+Command+Z',
-        selector: 'redo:'
-      }, {
-        type: 'separator'
-      }, {
-        label: 'Cut',
-        accelerator: 'Command+X',
-        selector: 'cut:'
-      }, {
-        label: 'Copy',
-        accelerator: 'Command+C',
-        selector: 'copy:'
-      }, {
-        label: 'Paste',
-        accelerator: 'Command+V',
-        selector: 'paste:'
-      }, {
-        label: 'Select All',
-        accelerator: 'Command+A',
-        selector: 'selectAll:'
-      }]
-    }, {
-      label: 'View',
-      submenu: (process.env.NODE_ENV === 'development') ? [{
-        label: 'Reload',
-        accelerator: 'Command+R',
-        click() {
-          mainWindow.webContents.reload();
-        }
-      }, {
-        label: 'Toggle Full Screen',
-        accelerator: 'Ctrl+Command+F',
-        click() {
-          mainWindow.setFullScreen(!mainWindow.isFullScreen());
-        }
-      }, {
-        label: 'Toggle Developer Tools',
-        accelerator: 'Alt+Command+I',
-        click() {
-          mainWindow.toggleDevTools();
-        }
-      }] : [{
-        label: 'Toggle Full Screen',
-        accelerator: 'Ctrl+Command+F',
-        click() {
-          mainWindow.setFullScreen(!mainWindow.isFullScreen());
-        }
-      }]
-    }, {
-      label: 'Window',
-      submenu: [{
-        label: 'Minimize',
-        accelerator: 'Command+M',
-        selector: 'performMiniaturize:'
-      }, {
-        label: 'Close',
-        accelerator: 'Command+W',
-        selector: 'performClose:'
-      }, {
-        type: 'separator'
-      }, {
-        label: 'Bring All to Front',
-        selector: 'arrangeInFront:'
-      }]
-    }, {
-      label: 'Help',
-      submenu: [{
-        label: 'Learn More',
-        click() {
-          shell.openExternal('http://electron.atom.io');
-        }
-      }, {
-        label: 'Documentation',
-        click() {
-          shell.openExternal('https://github.com/atom/electron/tree/master/docs#readme');
-        }
-      }, {
-        label: 'Community Discussions',
-        click() {
-          shell.openExternal('https://discuss.atom.io/c/electron');
-        }
-      }, {
-        label: 'Search Issues',
-        click() {
-          shell.openExternal('https://github.com/atom/electron/issues');
-        }
-      }]
-    }];
-
+    }, 
+    ...template];
+    
     menu = Menu.buildFromTemplate(template);
     Menu.setApplicationMenu(menu);
   } else {
-    template = [{
-      label: '&File',
-      submenu: [{
-        label: '&Open',
-        accelerator: 'Ctrl+O',
-        click() {
-          let filepaths = dialog.showOpenDialog({
-            properties: ['openFile']
-          });
-          if (filepaths) {
-            const id = ++canvasId;
-            const filepath = filepaths[0];
-            const imageFile = new ImageFile(filepath);
-            imageFile.on('load-init', () => mainWindow.webContents.send('load-image', {id, imageFile})); 
-            imageFile.on('load-data', (pixels) => mainWindow.webContents.send('load-data', {id, filepath, pixels}));
-            imageFile.on('load-complete', () => mainWindow.webContents.send('load-complete', {id, filepath}));
-            imageFile.on('load-error', (message) => 
-              dialog.showMessageBox({
-                type: 'error',
-                title: 'Failed to load image',
-                buttons: ['Close'],
-                message
-              })
-            );
-            imageFile.load();
-          } else {
-            console.error('Failed to load image!');
-          }
-        }
-      }, {
-        label: '&Close',
-        accelerator: 'Ctrl+W',
-        click() {
-          mainWindow.close();
-        }
-      }]
-    }, {
-      label: '&View',
-      submenu: (process.env.NODE_ENV === 'development') ? [{
-        label: '&Reload',
-        accelerator: 'Ctrl+R',
-        click() {
-          mainWindow.webContents.reload();
-        }
-      }, {
-        label: 'Toggle &Full Screen',
-        accelerator: 'F11',
-        click() {
-          mainWindow.setFullScreen(!mainWindow.isFullScreen());
-        }
-      }, {
-        label: 'Toggle &Developer Tools',
-        accelerator: 'Alt+Ctrl+I',
-        click() {
-          mainWindow.toggleDevTools();
-        }
-      }] : [{
-        label: 'Toggle &Full Screen',
-        accelerator: 'F11',
-        click() {
-          mainWindow.setFullScreen(!mainWindow.isFullScreen());
-        }
-      }]
-    }, {
-      label: 'Help',
-      submenu: [{
-        label: 'Learn More',
-        click() {
-          shell.openExternal('https://github.com/psychobolt/imagery');
-        }
-      }, {
-        label: 'Documentation',
-        click() {
-          shell.openExternal('https://github.com/psychobolt/imagery/blob/master/README.md');
-        }
-      }, {
-        label: 'Search Issues',
-        click() {
-          shell.openExternal('https://github.com/psychobolt/imagery/issues');
-        }
-      }]
-    }];
+    commands = {
+      open: 'Ctrl+O',
+      reload: 'Ctrl+R',
+      fullscreen: 'F11',
+      devTools: 'Alt+Ctrl+I'
+    };
+    template = createMenuTemplate(commands);
     menu = Menu.buildFromTemplate(template);
     mainWindow.setMenu(menu);
   }
