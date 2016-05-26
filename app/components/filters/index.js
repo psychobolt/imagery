@@ -715,6 +715,7 @@ function zhangSuen(layer, options) {
 
 function zhangSuenBFS(layer, options) {
   let queue = getBoundaryPixels(layer, options);
+  let discarded = {};
   const pixels = [...layer.pixels];
   const initialPixel = options.xPosition + options.yPosition * layer.width; //TODO canvas width
   const initialColor = layer.pixels[initialPixel];
@@ -723,28 +724,28 @@ function zhangSuenBFS(layer, options) {
     queue.push(null);
     let head = queue[0];
     while (head !== null) {
-      const neighbors = getNeighborPixels(layer, head, pixels.length, 3);
-      neighbors.forEach((neighbor) => {
-        if (neighbor.color === initialColor) {  // for each foreground neighbor of head
-          const neighborhood = getNeighborhoodColors(layer, neighbor.pixel, pixels.length, 3);
-          const nonInitialColors = neighborhood.reduce((prev, neighbor) => neighbor === initialColor ? prev : ++prev, 0);
-          if (2 <= nonInitialColors && nonInitialColors <= 6 
-            && getTransitionCount(neighborhood, initialColor) === 1) { // can be removed  
-            pixels[neighbor.pixel] = 254; 
-            queue.push(neighbor.pixel);
-          } else {
-            pixels[neighbor.pixel] = 1;
+      if (!discarded[head]) {
+        const neighbors = getNeighborPixels(layer, head, pixels.length, 3);
+        neighbors.forEach((neighbor) => {
+          if (neighbor.color === initialColor) {  // for each foreground neighbor of head
+            const neighborhood = getNeighborhoodColors(layer, neighbor.pixel, pixels.length, 3);
+            const nonInitialColors = neighborhood.reduce((prev, neighbor) => neighbor === initialColor ? prev : ++prev, 0);
+            if (2 <= nonInitialColors && nonInitialColors <= 6 
+              && getTransitionCount(neighborhood, initialColor) === 1) { // can be removed
+              pixels[neighbor.pixel] = options.targetColor; 
+              queue.push(neighbor.pixel);
+            } else {
+              pixels[neighbor.pixel] = initialColor;
+              discarded[neighbor.pixel] = true;
+            }
           }
-        }
-      });
+        });
+      }
       queue.shift();
       head = queue[0];
     }
     queue.shift();
   }
-  // Object.keys(visited).forEach((pixel) => {
-  //   pixels[pixel] = options.initialColor;
-  // });
   return layer;
 }
 

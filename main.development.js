@@ -50,13 +50,13 @@ function createMenuTemplate(commands) {
     }]
   }];
   if (process.platform !== 'darwin') {
-    fileMenus.push[{
+    fileMenus[0].submenu.push({
       label: '&Close',
       accelerator: 'Ctrl+W',
       click() {
         mainWindow.close();
       }
-    }];
+    });
   } 
   return [
     ...fileMenus, 

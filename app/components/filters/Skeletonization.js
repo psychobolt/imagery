@@ -81,7 +81,7 @@ export default class Skeletonization extends ColorFill {
           </IconButton>
         } />,
         <ListItem key="seed" style={this.state.method === 1 ? {display: 'none'} : undefined} disabled={true} primaryText="Is Seed" leftCheckbox={
-          <Checkbox disabled={this.state.disabled} />
+          <Checkbox disabled={true} checked={true} />
         } />,
         <ListItem key="xPosition" disabled={true} primaryText={
           <TextField style={styles.input} value={this.state.xPosition} onChange={this.onXpositionChange} floatingLabelText='X Position' 
