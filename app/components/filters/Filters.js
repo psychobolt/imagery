@@ -25,8 +25,8 @@ export default class Filter extends Component {
       <List>
         <Subheader>Filters</Subheader>
         <SpatialResolution index={index++} canvas={canvas} layer={layer} applyFilter={applyFilter} />
-        <GrayLevel index={index++} canvas={canvas} layer={layer} applyFilter={applyFilter} />
         <GrayScale index={index++} canvas={canvas} layer={layer} applyFilter={applyFilter} />
+        <GrayLevel index={index++} canvas={canvas} layer={layer} applyFilter={applyFilter} />
         <Histogram index={index++} canvas={canvas} canvases={canvases} layer={layer} applyFilter={applyFilter} />
         <NoiseReduce index={index++} canvas={canvas} canvases={canvases} layer={layer} applyFilter={applyFilter} />
         <Sharpen index={index++} canvas={canvas} canvases={canvases} layer={layer} applyFilter={applyFilter} />

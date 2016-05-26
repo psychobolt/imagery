@@ -619,32 +619,36 @@ export function distanceFill(layer, context, options) {
 */
 function getTransitionCount(neighborhood, initialColor) {
   let count = 0;
-  // p2 p3
-  if (neighborhood[1] === initialColor && neighborhood[2] !== initialColor) {
+  // p2 -> p3
+  if (neighborhood[1] !== initialColor && neighborhood[2] === initialColor) {
     count++;
   }
-  // p3 p4
-  if (neighborhood[2] === initialColor && neighborhood[5] !== initialColor) {
+  // p3 -> p4
+  if (neighborhood[2] !== initialColor && neighborhood[5] === initialColor) {
     count++;
   }
-  // p4 p5
-  if (neighborhood[5] === initialColor && neighborhood[8] !== initialColor) {
+  // p4 -> p5
+  if (neighborhood[5] !== initialColor && neighborhood[8] === initialColor) {
     count++;
   }
-  // p5 p6
-  if (neighborhood[8] === initialColor && neighborhood[7] !== initialColor) {
+  // p5 -> p6
+  if (neighborhood[8] !== initialColor && neighborhood[7] === initialColor) {
     count++;
   }
-  // p6 p7
-  if (neighborhood[7] === initialColor && neighborhood[6] !== initialColor) {
+  // p6 -> p7
+  if (neighborhood[7] !== initialColor && neighborhood[6] === initialColor) {
     count++;
   }
-  // p7 p8
-  if (neighborhood[6] === initialColor && neighborhood[3] !== initialColor) {
+  // p7 -> p8
+  if (neighborhood[6] !== initialColor && neighborhood[3] === initialColor) {
     count++;
   }
-  // p8 p9
-  if (neighborhood[3] === initialColor && neighborhood[0] !== initialColor) {
+  // p8 -> p9
+  if (neighborhood[3] !== initialColor && neighborhood[0] === initialColor) {
+    count++;
+  }
+  // p9 -> p2
+  if (neighborhood[0] !== initialColor && neighborhood[1] === initialColor) {
     count++;
   }
   return count;
@@ -652,11 +656,13 @@ function getTransitionCount(neighborhood, initialColor) {
 
 function zhangSuen(layer, options) {
   const initialPixel = options.xPosition + options.yPosition * layer.width; //TODO canvas width
-  const initialColor = layer.pixels[initialPixel];
+  const initialColor = layer.pixels[initialPixel]; // for binary images this is usually black
   let pixels = [...layer.pixels];
+  let changed;
   layer = Object.assign({}, layer, {pixels});
-  let changed = false;
   do {
+    changed = false;
+    let updated = [];
     pixels.forEach((pixel, index) => {
       if (pixel === initialColor) {
         /*
@@ -668,45 +674,47 @@ function zhangSuen(layer, options) {
         const nonInitialColors = neighborhood.reduce((prev, neighbor) => neighbor === initialColor ? prev : ++prev, 0);
         if ((2 <= nonInitialColors && nonInitialColors <= 6) 
             && getTransitionCount(neighborhood, initialColor) === 1
-            // p2 or p4 or p6 
-            && (neighborhood[1] === initialColor || neighborhood[5] === initialColor || neighborhood[7] === initialColor)
-            // p4 or p6 or p8
-            && (neighborhood[5] === initialColor || neighborhood[7] === initialColor || neighborhood[3] === initialColor)) {
-          pixels[index] = options.targetColor;
+            //at least one white
+            // P4 or P6 or (P2 and P8)
+            && (neighborhood[5] === options.targetColor || neighborhood[7] === options.targetColor 
+            || (neighborhood[1] === options.targetColor && neighborhood[3] === options.targetColor))) {
+          updated.push(index);
           changed = true;
         }
       }
     });
-    if (changed) {
-      changed = false;
-      pixels.forEach((pixel, index) => {
-        if (pixel === initialColor) {
-          /*
-          * p9 (0) p2 (1) p3 (2)
-          * p8 (3) p1 (4) p4 (5)
-          * p7 (6) p6 (7) p5 (8)
-          */
-          const neighborhood = getNeighborhoodColors(layer, index, pixels.length, 3);
-          const nonInitialColors = neighborhood.reduce((prev, neighbor) => neighbor === initialColor ? prev : ++prev, 0);
-          if ((2 <= nonInitialColors && nonInitialColors <= 6) 
-              && getTransitionCount(neighborhood, initialColor) === 1
-              // p2 or p4 or p8 
-              && (neighborhood[1] === initialColor || neighborhood[5] === initialColor || neighborhood[3] === initialColor)
-              // p2 or p6 or p8
-              && (neighborhood[1] === initialColor || neighborhood[7] === initialColor || neighborhood[3] === initialColor)) {
-            pixels[index] = options.targetColor;
-            changed = true;
-          }
+    updated.forEach((pixel) => {
+      pixels[pixel] = options.targetColor;
+    });
+    pixels.forEach((pixel, index) => {
+      if (pixel === initialColor) {
+        /*
+        * p9 (0) p2 (1) p3 (2)
+        * p8 (3) p1 (4) p4 (5)
+        * p7 (6) p6 (7) p5 (8)
+        */
+        const neighborhood = getNeighborhoodColors(layer, index, pixels.length, 3);
+        const nonInitialColors = neighborhood.reduce((prev, neighbor) => neighbor === initialColor ? prev : ++prev, 0);
+        if ((2 <= nonInitialColors && nonInitialColors <= 6) 
+            && getTransitionCount(neighborhood, initialColor) === 1
+            //at least one white
+            // P2 or P8 or (P4 and P6)
+            && (neighborhood[1] === options.targetColor || neighborhood[3] === options.targetColor
+            || (neighborhood[5] === options.targetColor && neighborhood[7] === options.targetColor))) {
+          updated.push(index);
+          changed = true;
         }
-      });
-    }
+      }
+    });
+    updated.forEach((pixel) => {
+      pixels[pixel] = options.targetColor;
+    });
   } while (changed);
   return layer;
 }
 
 function zhangSuenBFS(layer, options) {
   let queue = getBoundaryPixels(layer, options);
-  let visited = {};
   const pixels = [...layer.pixels];
   const initialPixel = options.xPosition + options.yPosition * layer.width; //TODO canvas width
   const initialColor = layer.pixels[initialPixel];
@@ -715,27 +723,28 @@ function zhangSuenBFS(layer, options) {
     queue.push(null);
     let head = queue[0];
     while (head !== null) {
-      if (!visited[head]) {
-        const neighbors = getNeighborPixels(layer, head, pixels.length, 3);
-        neighbors.forEach((neighbor) => {
-          if (!visited[neighbor.pixel] && 
-            neighbor.color === initialColor) {
-            //pixels[neighbor.pixel] = distance;
+      const neighbors = getNeighborPixels(layer, head, pixels.length, 3);
+      neighbors.forEach((neighbor) => {
+        if (neighbor.color === initialColor) {  // for each foreground neighbor of head
+          const neighborhood = getNeighborhoodColors(layer, neighbor.pixel, pixels.length, 3);
+          const nonInitialColors = neighborhood.reduce((prev, neighbor) => neighbor === initialColor ? prev : ++prev, 0);
+          if (2 <= nonInitialColors && nonInitialColors <= 6 
+            && getTransitionCount(neighborhood, initialColor) === 1) { // can be removed  
+            pixels[neighbor.pixel] = 254; 
             queue.push(neighbor.pixel);
+          } else {
+            pixels[neighbor.pixel] = 1;
           }
-        });
-     }
-     queue.shift();
-      if (head) {
-        visited[head] = true;
-      }
+        }
+      });
+      queue.shift();
       head = queue[0];
     }
     queue.shift();
-    if (head) {
-      visited[head] = true;
-    }
   }
+  // Object.keys(visited).forEach((pixel) => {
+  //   pixels[pixel] = options.initialColor;
+  // });
   return layer;
 }
 
