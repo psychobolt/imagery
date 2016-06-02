@@ -64,13 +64,15 @@ export default class ColorFill extends Filter {
   
   onTargetColorChange(event, targetColor) {
     const { layer } = this.props;
+    let options = {targetColor};
     targetColor = parseInt(targetColor);
     if (targetColor < 0) {
       targetColor = 0;
+      options = {targetColor};
     } else if (targetColor >= layer.colorBits) {
       targetColor = layer.colorBits;
+      options = {targetColor};
     }
-    let options = {targetColor};
     if (Number.isInteger(targetColor)) {
       options = Object.assign({}, this.state, {targetColor});
       this.applyFilter(options);

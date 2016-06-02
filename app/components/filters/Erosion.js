@@ -51,7 +51,7 @@ export default class Erosion extends ColorFill {
       options = {iterations};
     }
     if (Number.isInteger(iterations)) {
-      this.applyFilter(Object.assign({}, this.state, options));  
+      this.applyFilter(Object.assign({}, this.state, {iterations}));  
     }
     this.setState(options);
   }

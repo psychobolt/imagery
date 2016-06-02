@@ -43,14 +43,14 @@ export default class DistanceFill extends ColorFill {
   }
   
   onScaleFactorChange(event, scaleFactor) {
-    scaleFactor = parseInt(scaleFactor);
     let options = {scaleFactor};
+    scaleFactor = parseInt(scaleFactor);
     if (scaleFactor < 0) {
       scaleFactor = 1;
       options = {scaleFactor};
     }
     if (Number.isInteger(scaleFactor)) {
-      this.applyFilter(Object.assign({}, this.state, options));
+      this.applyFilter(Object.assign({}, this.state, {scaleFactor}));
     }
     this.setState(options);
   }
