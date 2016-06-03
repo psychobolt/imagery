@@ -1,5 +1,5 @@
 import { ADD_CANVAS, REMOVE_CANVAS, MOVE_CANVAS, SELECT_CANVAS } from '../actions/WorkspaceActions';
-import { INIT_CONTEXT, APPLY_FILTER } from '../actions/CanvasActions';
+import { INIT_CONTEXT, APPLY_OPTION, APPLY_FILTER } from '../actions/CanvasActions';
 import * as canvasUtils from '../utils/canvas-utils';
 import { canvasProps } from '../components/Canvas';
 
@@ -8,6 +8,9 @@ function canvasRenderer(state, action) {
         return state;
     }
     if (action.type === INIT_CONTEXT && !state.context) {
+        return action.payload;
+    }
+    if (action.type === APPLY_OPTION) {
         return action.payload;
     }
     if (action.type === APPLY_FILTER) {

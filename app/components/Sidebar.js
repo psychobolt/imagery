@@ -3,7 +3,7 @@ import Drawer from 'material-ui/Drawer';
 import { List, ListItem } from 'material-ui/List';
 import Subheader from 'material-ui/Subheader';
 import Divider from 'material-ui/Divider';
-import Options from '../components/Options';
+import Options from '../containers/Options';
 import Filters from '../containers/Filters';
 
 export default class Sidebar extends Component {
@@ -31,7 +31,7 @@ export default class Sidebar extends Component {
           }
         </List>
         <Divider />
-        {canvas.layers.length ? <Options /> : null}
+        {canvas.layers.length ? <Options canvas={canvas} /> : null}
         {canvas.layers.length ?  <Divider /> : null}
         {canvas.layers.length ? <Filters canvas={canvas} /> : null}
       </Drawer>

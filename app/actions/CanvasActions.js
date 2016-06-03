@@ -2,6 +2,7 @@ import * as canvasUtils from '../utils/canvas-utils';
 
 export const INIT_CONTEXT = 'INIT_CANVAS';
 export const APPLY_FILTER = 'APPLY_FILTER';
+export const APPLY_OPTION = 'APPLY_OPTION';
 export const RENDER_LAYER = 'RENDER_LAYER';
 export const RENDER_LAYERS = 'RENDER_LAYERS';
 
@@ -35,6 +36,17 @@ export function applyFilter(canvas, layer, filter) {
     });
     chain(dispatch);
   };
+}
+
+export function applyOption(canvas, option) {
+  return (dispatch) => {
+    dispatch({
+      type: APPLY_OPTION,
+      payload: Object.assign({}, canvas, {options: Object.assign({}, canvas.options, {
+        [option.type]: option
+      })})
+    });
+  }
 }
 
 export function renderLayer(canvas, layer, index) {

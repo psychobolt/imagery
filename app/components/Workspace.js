@@ -27,7 +27,8 @@ export default class Workspace extends Component {
         height,
         layers: [Object.assign({}, canvas.imageFile, {
           filters: {}
-        })]
+        })],
+        options: {}
       }));
     });
   }
