@@ -1,11 +1,18 @@
 import React, { Component } from 'react';
 import { findDOMNode } from 'react-dom';
-import styles from './Canvas.css';
+import css from './Canvas.css';
 import * as canvasUtils from '../utils/canvas-utils';
 import { ipcRenderer } from 'electron';
 import { Card, CardHeader, CardMedia } from 'material-ui/Card';
+import CircularProgress from 'material-ui/CircularProgress';
 import Paper from 'material-ui/Paper';
 import PubSub from 'pubsub-js';
+
+const styles = Object.assign({}, css, {
+  progress: {
+    margin: '-15px 0 0 -15px'
+  }
+});
 
 export default class Canvas extends Component {
   
@@ -45,17 +52,31 @@ export default class Canvas extends Component {
     }
     
     onLoadComplete(event, data) {
-      const { canvas, renderLayers } = this.props;
+      const { renderLayers } = this.props;
+      let { canvas } = this.props;
       if (canvas.id !== data.id) {
         return;
+      }
+      if (data.compressionRatio) {
+        const layers = canvas.layers.map((layer) => {
+          if (layer.filepath === data.filepath) {
+            return Object.assign({}, layer, {compressionRatio: data.compressionRatio});
+          }
+          return layer;
+        });
+        canvas = Object.assign({}, canvas, {layers});
       }
       renderLayers(canvas);
     }
     
     onCanvasSelect(event) {
       const {canvas, onSelect} = this.props;
+      if (!canvas.layers.length) {
+        return;
+      }
       if (!canvas.selected) {
         onSelect(canvas);
+        return;
       }
       const rect = this.refs.canvas.getBoundingClientRect();
       const xPosition = event.clientX - rect.left;
@@ -83,8 +104,9 @@ export default class Canvas extends Component {
             }}>
             <Paper zDepth={2}>
                 <Card>
-                  <CardHeader title={canvas.title + ' (' + canvas.width + ' x ' + canvas.height + ')'}
-                    style={{cursor: "move"}}
+                  <CardHeader title={canvas.title}
+                    avatar={canvas.status === 'ready' ? null : <CircularProgress style={styles.progress} size={0.5} />}
+                    style={{cursor: "move", maxHeight: '50px'}}
                     ref={(cardHeader) => connectDragSource(findDOMNode(cardHeader))}
                     titleStyle={{textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap"}} />
                   <CardMedia>
@@ -104,7 +126,8 @@ export const canvasProps = {
   width: 640, 
   height: 320, 
   title: "<No Content>",
-  layers: []
+  layers: [],
+  status: 'ready'
 };
 
 Canvas.defaultProps = canvasProps;

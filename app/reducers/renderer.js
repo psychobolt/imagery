@@ -1,7 +1,6 @@
 import { ADD_CANVAS, REMOVE_CANVAS, MOVE_CANVAS, SELECT_CANVAS } from '../actions/WorkspaceActions';
-import { INIT_CONTEXT, APPLY_OPTION, APPLY_FILTER } from '../actions/CanvasActions';
+import { INIT_CONTEXT, APPLY_OPTION, APPLY_FILTER, RENDER_LAYER, RENDER_LAYERS } from '../actions/CanvasActions';
 import * as canvasUtils from '../utils/canvas-utils';
-import { canvasProps } from '../components/Canvas';
 
 function canvasRenderer(state, action) {
     if (!state.id || action.payload.id !== state.id) {
@@ -14,12 +13,18 @@ function canvasRenderer(state, action) {
         return action.payload;
     }
     if (action.type === APPLY_FILTER) {
-        return action.payload;
+        return Object.assign({}, action.payload, {status: 'rendering'});
+    }
+    if (action.type === RENDER_LAYER) {
+        return Object.assign({}, state, action.payload, {status: 'ready'});
+    }
+    if (action.type === RENDER_LAYERS) {
+        return Object.assign({}, state, action.payload, {status: 'ready'});
     }
     return state;
 }
 
-export default function renderer(state = [Object.assign({}, canvasProps, {selected: true})], action) {
+export default function renderer(state, action) {
     state = state.map((canvas) => {
         return canvasRenderer(canvas, action);
     });

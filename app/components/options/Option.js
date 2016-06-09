@@ -21,7 +21,7 @@ export default class Option extends Component {
   }
   
   applyOption(option) {
-    const {canvas, applyOption} = this.props;
+    const {canvas, applyOption, index} = this.props;
     option = Object.assign({}, option, {index});
     applyOption(canvas, option);
   }

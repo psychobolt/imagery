@@ -1,6 +1,9 @@
 import vertexShader from '../shaders/image-spatial.vert';
 import fragmentShader from '../shaders/image-raster.frag';
+import {Readable} from 'stream';
+import fs from 'fs';
 import _ from 'lodash';
+import HuffmanTree from './HuffmanTree';
 
 function isError(gl, shader) {
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
@@ -170,10 +173,16 @@ export function getPixels(canvas) {
   const gl = canvas.context.gl;
   let pixels = new Uint8Array(4 * canvas.width * canvas.height);
   gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+  const last = pixels.length / 4 - 1;
   let rawPixels = [];
+  let index = last;
+  let offset = 0;
   for (let i = 0; i < pixels.length; i+=4) {
     const pixel = Math.round((pixels[i] + pixels[i+1] + pixels[i+2]) / 3);
-    rawPixels.push(pixel);
+    if ((index + 1) % canvas.width === 0) {
+      offset = index;
+    }
+    rawPixels[offset + (offset - index--)] = pixel;
   }
   return rawPixels;
 }
@@ -193,4 +202,100 @@ export function cleanUp(context) {
   gl.deleteProgram(context.program);
   gl.deleteShader(context.vertexShader);
   gl.deleteShader(context.fragmentShader);
+}
+
+export function runLengthEncode(stream, pixels, width, height, mode) {
+    let magicNumber = 'E2';
+    let count = 1;
+    let prev;
+    if (mode === 1) {
+      magicNumber = 'E1';
+    }
+    stream.write(magicNumber + '\n' + width + ' ' + height + '\n255\n');
+    pixels.forEach((pixel, index) => {
+      if (prev === pixel) {
+        count++;
+      } else if (prev !== undefined && prev !== pixel) {
+        if (mode === 1) { // ASCII
+          stream.write(prev + ' ' + count + (index === pixels.length - 1 ? '\n' : ' '));
+        } else { // BIN
+          const pixelBuffer = new Buffer.allocUnsafe(1);
+          const countBuffer = new Buffer(4);
+          pixelBuffer.writeUInt8(prev);
+          countBuffer.writeUInt32BE(count);
+          stream.write(pixelBuffer);
+          stream.write(countBuffer);
+        }
+        count = 1;
+      }
+      prev = pixel;
+    });
+}
+
+export function huffmanEncode(stream, pixels, width, height, mode) {
+  const histogram = {};
+  pixels.forEach((pixel) => {
+    if (histogram[pixel]) {
+      histogram[pixel]++;
+    } else {
+      histogram[pixel] = 1;
+    }
+  });
+  const tree = new HuffmanTree(histogram, ',', pixels.length);
+  const codeBook = {};
+  tree.leaves.forEach((node) => {
+    if (node === tree.root) {
+      return;
+    }
+    const token = node.token;
+    codeBook[token] = node.bit;
+    while (node.parent !== tree.root) {
+      node = node.parent;
+      codeBook[token] = node.bit + codeBook[token];
+    }
+  });
+  let encoded = '';
+  pixels.forEach((pixel, index) => {
+      encoded += codeBook[pixel.toString()];
+  });
+  const chunks = encoded.match(/.{1,8}/g);
+  let magicNumber = 'E4';
+  if (mode === 1) {
+    magicNumber = 'E3';
+  }
+  stream.write(magicNumber + '\n' + width + ' ' + height + '\n255\n');
+  chunks.forEach((chunk, index) => {
+    let byte = parseInt(chunk, 2); 
+    if (mode === 1) { // ASCII
+      stream.write(byte + ' ');
+    } else { // BIN
+      const buffer = new Buffer(1);
+      buffer.writeUInt8(byte); 
+      stream.write(buffer);
+    }
+  });
+}
+
+export function exportCanvasAsImage(canvas, destination) {
+  const stream = fs.createWriteStream(destination);
+  const pixels = getPixels(canvas);
+  const method = canvas.options.COMPRESSION ? canvas.options.COMPRESSION.method : 0;
+  const mode = canvas.options.COMPRESSION ? canvas.options.COMPRESSION.mode : 0;
+  if (method === 1) { // Run length encoding
+    runLengthEncode(stream, pixels, canvas.width, canvas.height, mode);
+  } else if (method === 2) { // huffman
+    huffmanEncode(stream, pixels, canvas.width, canvas.height);
+  } else if (method === 3) { // differential PCM
+    
+  } else if (method === 4) { // LZW
+    
+  } else {
+    stream.write('P5\n' + canvas.width + ' ' + canvas.height + '\n255\n');
+    pixels.forEach((pixel, index) => {
+      const buffer = new Buffer.allocUnsafe(1);
+      buffer.writeUInt8(pixel);
+      stream.write(buffer);
+    });
+  }
+  stream.end();
 }

@@ -1,14 +1,23 @@
 import fs from 'fs';
 import readline from 'line-reader';
+import * as imageUtils from './image-utils';
+import PBMFileReader from './PBMFileReader';
 
-const IMAGE_FORMATS = {
+const PBM_COMPRESSED_FORMATS = {
+  "E1" : "PGM_ASCII_RLE_COMPRESSED",
+  "E2" : "PGM_BIN_RLE_COMPRESSED",
+  "E3" : "PGM_ASCII_HME_COMPRESSED",
+  "E4" : "PGM_BIN_HME_COMPRESSED"
+}
+
+const PBM_IMAGE_FORMATS = Object.assign({}, {
   //"P1" : "PBM_ASCII",
   "P2" : "PGM_ASCII",
   //"P3" : "PPM_ASCII",
   //"P4" : "PBM_BIN",
-  //"P5" : "PGM_BIN",
-  //"P6" : "PPM_BIN"
-};
+  "P5" : "PGM_BIN",
+  //"P6" : "PPM_BIN",
+}, PBM_COMPRESSED_FORMATS);
 
 class PBMAsciiReader {
     
@@ -35,6 +44,7 @@ export default class ImageFile {
     
     constructor (filepath) {
         this.filepath = filepath;
+        this.length = 0;
         this.pixels = [];
     }
     
@@ -44,19 +54,44 @@ export default class ImageFile {
     
     load() {
         const onLoad = this['load-data'] || function () {};
-        const onComplete = this['load-complete'] || function() {};
         const onError = this['load-error'] || function(error) {};
-        fs.open(this.filepath, 'r', (status, fd) => {
-            if (status) {
-                onError();
-                return;
+        const onComplete = this['load-complete'] || function() {};
+        const complete = () => {
+            if (this.length !== this.pixels.length) {
+                this.compressionRatio = Math.ceil(this.pixels.length / this.length);
+                console.log('Compressed pixel count: ' + this.length);
+                console.log('Original pixel count: ' + this.pixels.length);
+                console.log('Compression Ratio: ' + this.compressionRatio);
+                this.length = this.pixels.length;
             }
-            const header = new Buffer(2);
-            fs.readSync(fd, header, 0, 2, 0);
-            const format = IMAGE_FORMATS[header.toString('utf-8')];
-            if (!format) {
-                fs.close(fd, () => onError('File is not a supported image format. Supported image formats:\n' + JSON.stringify(IMAGE_FORMATS, null, 2)));
-            } else if (format.indexOf('_ASCII')) {
+            onComplete();
+            console.log('Loaded image: ' + this.filepath + ' ' + this.width + ' ' + this.height + ' ' + this.colorBits);
+        };
+        const getImagePixels = (data) => {
+            let pixels = [];
+            this.length += data.length;
+            if (this.format === PBM_COMPRESSED_FORMATS.E1 || this.format === PBM_COMPRESSED_FORMATS.E2) {
+                pixels = imageUtils.runLengthDecode(data);
+            } else {
+                pixels = data.map((value) => parseInt(value));
+            }
+            pixels.forEach((pixel) => {
+                this.pixels.push(pixel);
+            });
+            return pixels;
+        };
+        const fd = fs.openSync(this.filepath, 'r');
+        if (!fd) {
+            onError('Unable to open file');
+            return;
+        }
+        const header = new Buffer(2);
+        fs.readSync(fd, header, 0, 2, 0);
+        this.format = PBM_IMAGE_FORMATS[header.toString()];
+        if (!this.format) {
+            fs.close(fd, () => onError('File is not a supported image format. Supported image formats:\n' + JSON.stringify(IMAGE_FORMATS, null, 2)));
+        } else {
+            if (this.format.indexOf('_ASCII') !== -1) {
                 fs.close(fd);
                 const reader = new PBMAsciiReader(this.filepath, (line, index) => {
                     if (index === 0) return;
@@ -67,12 +102,12 @@ export default class ImageFile {
                             this.height = parseInt(resolution[1]);
                         } else if (!this.colorBits) {
                             this.colorBits = parseInt(line);
-                        } else if (this['load-init']) {
+                            } else if (this['load-init']) {
                             this['load-init']();
                             delete this['load-init'];
-                            onLoad(line.split(/\s+/).map((val) => parseInt(val)));
+                            onLoad(getImagePixels(line.split(/\s+/)));
                         } else if (onLoad) {
-                            onLoad(line.split(/\s+/).map((val) => parseInt(val)));
+                            onLoad(getImagePixels(line.split(/\s+/)));
                         } else {
                             reader.close('File is not a supported image format. Supported image formats:\n' + JSON.stringify(IMAGE_FORMATS, null, 2));
                         }
@@ -81,19 +116,33 @@ export default class ImageFile {
                     if (err) {
                         onError(err);
                     } else {
-                        onComplete();
-                        console.log('Loaded image: ' + this.filepath + ' ' + this.width + ' ' + this.height + ' ' + this.colorBits);
+                        complete();
                     }
                 });
-            } else if (format.indexOf('_BIN')) {
-                fs.close(fd, () => {
-                    onComplete();
-                    console.log('Loaded image: ' + this.filepath + ' ' + this.width + ' ' + this.height + ' ' + this.colorBits);
+            } else if (this.format.indexOf('_BIN') !== -1) {
+                const reader = new PBMFileReader(fd, this.format);
+                Object.assign(this, reader.getInfo());
+                this['load-init']();
+                let pixels = [];
+                reader.readPixels((buffer) => {
+                    if (buffer.length === 4) {
+                        pixels.push(buffer.readUInt32BE(0));
+                    } else {
+                        pixels.push(buffer.readUInt8(0));
+                    }
+                    if (pixels.length === 64) {
+                        onLoad(getImagePixels(pixels));
+                        pixels = [];
+                    }
                 });
+                if (pixels.length) {
+                    onLoad(getImagePixels(pixels));
+                }
+                fs.close(fd, complete);
             } else {
                 fd.close(fd, () => onError('Unexpected error'));
             }
-        });
+        }
     }
     
 }

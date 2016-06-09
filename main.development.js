@@ -33,7 +33,7 @@ function createMenuTemplate(commands) {
           const imageFile = new ImageFile(filepath);
           imageFile.on('load-init', () => mainWindow.webContents.send('load-image', {id, imageFile})); 
           imageFile.on('load-data', (pixels) => mainWindow.webContents.send('load-data', {id, filepath, pixels}));
-          imageFile.on('load-complete', () => mainWindow.webContents.send('load-complete', {id, filepath}));
+          imageFile.on('load-complete', () => mainWindow.webContents.send('load-complete', {id, filepath, compressionRatio: imageFile.compressionRatio}));
           imageFile.on('load-error', (message) => 
             dialog.showMessageBox({
               type: 'error',
@@ -45,6 +45,15 @@ function createMenuTemplate(commands) {
           imageFile.load();
         } else {
           console.error('Failed to load image!');
+        }
+      }
+    }, {
+      label: '&Save As',
+      accelerator: commands.save,
+      click() {
+        const filepath = dialog.showSaveDialog({});
+        if (filepath) { 
+          mainWindow.webContents.send('save-image', filepath);
         }
       }
     }]
@@ -134,6 +143,7 @@ app.on('ready', () => {
   if (process.platform === 'darwin') {
     commands = {
       open: 'Command+O',
+      save: 'Command+Shift+S',
       hide: 'Command+H',
       quit: 'Command+Q',
       reload: 'Command+R',
@@ -181,6 +191,7 @@ app.on('ready', () => {
   } else {
     commands = {
       open: 'Ctrl+O',
+      save: 'Ctrl+Shift+S',
       reload: 'Ctrl+R',
       fullscreen: 'F11',
       devTools: 'Alt+Ctrl+I'

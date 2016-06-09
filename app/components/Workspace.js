@@ -9,33 +9,52 @@ export default class Workspace extends Component {
   constructor(props, content) {
     super(props, content);
     this.onCanvasSelect = this.onCanvasSelect.bind(this);
+    this.loadImage = this.loadImage.bind(this);
+    this.saveImage = this.saveImage.bind(this);
   }
   
   componentDidMount() {
-    const { canvases, addCanvas, removeCanvas } = this.props;
-    ipcRenderer.on('load-image', function (event, canvas) {
-      if (!canvases[0].id) {
-        removeCanvas(canvases[0]);
-      }
-      const width = canvas.imageFile.width;
-      const height = canvas.imageFile.height;
-      const paths = canvas.imageFile.filepath.split('\\');
-      addCanvas(Object.assign({}, canvasProps, {
-        id: canvas.id,
-        title: paths[paths.length - 1],
-        width,
-        height,
-        layers: [Object.assign({}, canvas.imageFile, {
-          filters: {}
-        })],
-        options: {}
-      }));
-    });
+    ipcRenderer.on('load-image', this.loadImage);
+    ipcRenderer.on('save-image', this.saveImage);
+  }
+  
+  componentWillUnmount() {
+    ipcRenderer.removeAllListeners('load-image');
+    ipcRenderer.removeAllListeners('save-image');
   }
   
   onCanvasSelect(canvas) {
     const { selectCanvas } = this.props;
     selectCanvas(canvas);
+  }
+  
+  loadImage(event, canvas) {
+    const { canvases, addCanvas, removeCanvas } = this.props;
+    if (!canvases[0].id) {
+      removeCanvas(canvases[0]);
+    }
+    const width = canvas.imageFile.width;
+    const height = canvas.imageFile.height;
+    const paths = canvas.imageFile.filepath.split('\\');
+    addCanvas(Object.assign({}, canvasProps, {
+      id: canvas.id,
+      title: paths[paths.length - 1],
+      width,
+      height,
+      layers: [Object.assign({}, canvas.imageFile, {
+        filters: {}
+      })],
+      options: {},
+      status: 'rendering'
+    }));
+  }
+  
+  saveImage(event, destination) {
+    const {canvases, saveImage} = this.props;
+    const canvas = canvases.find((canvas) => canvas.selected);
+    if (canvas.layers.length) {
+      saveImage(canvas, destination);
+    }
   }
   
   render () {

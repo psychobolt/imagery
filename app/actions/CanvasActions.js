@@ -18,7 +18,7 @@ export function initContext(canvas, gl) {
 
 export function applyFilter(canvas, layer, filter) { 
   return (dispatch) => {
-    let chain = function () {}
+    let chain = function (canvas, dispatch) {};
     const layers = canvas.layers.map((_layer, index) => {
       if (layer === _layer) {
         _layer = Object.assign({}, layer, {
@@ -26,15 +26,18 @@ export function applyFilter(canvas, layer, filter) {
             [filter.type]: filter
           })
         });
-        chain = renderLayer(canvas, _layer, index);
+        chain = function (canvas, dispatch) {
+          renderLayer(canvas, _layer, index)(dispatch);
+        };
       }
       return _layer;
     });
+    canvas = Object.assign({}, canvas, {layers});
     dispatch({
       type: APPLY_FILTER,
-      payload: Object.assign({}, canvas, {layers})
+      payload: canvas
     });
-    chain(dispatch);
+    chain(canvas, dispatch);
   };
 }
 
