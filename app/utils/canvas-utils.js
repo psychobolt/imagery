@@ -254,16 +254,23 @@ export function huffmanEncode(stream, pixels, width, height, mode) {
       codeBook[token] = node.bit + codeBook[token];
     }
   });
-  let encoded = '';
-  pixels.forEach((pixel, index) => {
-      encoded += codeBook[pixel.toString()];
-  });
-  const chunks = encoded.match(/.{1,8}/g);
   let magicNumber = 'E4';
   if (mode === 1) {
     magicNumber = 'E3';
   }
   stream.write(magicNumber + '\n' + width + ' ' + height + '\n255\n');
+  Object.keys(codeBook).forEach((key) => {
+      const buffer = new Buffer.allocUnsafe(2);
+      buffer.writeUInt8(parseInt(key));
+      buffer.writeUInt8(parseInt(codeBook[key], 2), 1);
+      stream.write(buffer);
+  })
+  let encoded = '';
+  pixels.forEach((pixel, index) => {
+      encoded += codeBook[pixel.toString()];
+  });
+  stream.write('\n');
+  const chunks = encoded.match(/.{1,8}/g);
   chunks.forEach((chunk, index) => {
     let byte = parseInt(chunk, 2); 
     if (mode === 1) { // ASCII

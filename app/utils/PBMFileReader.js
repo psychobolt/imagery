@@ -1,5 +1,9 @@
 import fs from 'fs';
 
+function defaultReducer(pixels) { 
+  return pixels;
+}
+
 function readByte(fd, position) {
   const buffer = new Buffer(1);
   const length = fs.readSync(fd, buffer, 0, 1, position);
@@ -27,30 +31,28 @@ function getUTF8String(fd, offset, term) {
     }
 }
 
-function readPGMBinary(fd, callback, position) {
-    callback = callback || function () {};
+function readPGMBinary(fd, collector, position, term) {
+    collector = collector || function () {};
     let buffer = readByte(fd, position);
-    while (buffer.length) {
+    while (buffer.length && (term !== undefined || term != buffer.toString())) {
       if (buffer.length) {
-        callback(buffer);
+        collector(buffer);
       }
       buffer = readByte(fd);
     }
 }
 
-function readPGMCompressedRLE(fd, callback, position) {
-    callback = callback || function () {};
+function readPGMCompressedRLE(fd, collector, position) {
+    collector = collector || function () {};
     let pixelBuffer = readByte(fd, position);
-    let index = 0;
     while (pixelBuffer.length) {
       if (pixelBuffer.length) {
-        callback(pixelBuffer);
+        collector(pixelBuffer);
         let countBuffer = new Buffer(4);
         for (let i = 0; i < 4; i++) { // read 4 bytes or a 32 bit unsigned integer
           countBuffer[i] = readByte(fd)[0];
         }
-        callback(countBuffer);
-        index++;
+        collector(countBuffer);
       }
       pixelBuffer = readByte(fd);
     }
@@ -85,11 +87,59 @@ export default class PBMFileReader {
     return {width, height, colorBits}; 
   }
 
-  readPixels(onRead) {
+  readPixels(onRead, batchSize) {
+    let pixels = [];
+    let processor = defaultReducer;
+    const collect = function (buffer) {
+      if (buffer.length === 4) {
+          pixels.push(buffer.readUInt32BE(0));
+      } else {
+          pixels.push(buffer.readUInt8(0));
+      }
+      if (pixels.length === batchSize) {
+          onRead(processor(pixels));
+          pixels = [];
+      }
+    };
     if (this.format.indexOf('PGM_BIN_RLE') === 0) {
-      readPGMCompressedRLE(this.fd, onRead);
+      processor = function (data) {
+        let pixels = [];
+        let prev;
+        data.forEach((value, index) => {
+          if (index % 2 === 1) {
+            let count = value;
+            for(let i = 0; i < count; i++) {
+              pixels.push(prev);
+            }
+          }
+          prev = value;
+        });
+        return pixels;
+      };
+      readPGMCompressedRLE(this.fd, collect);
+    } else if (this.format.indexOf('PGM_BIN_HME') === 0) {
+      const codeBook = {};
+      let index = 0;
+      let value;
+      readPGMBinary(this.fd, (buffer) => {
+        if (index++ % 2 == 0) {
+          value = buffer.readUInt8(0);
+        } else {
+          codeBook[buffer.readUInt8(0).toString(2)] = value;
+        }
+      }, '\n');
+      let encoded = [];
+      index = 0;
+      readPGMBinary(this.fd, (buffer) => {
+        buffer.readUInt8(0).toString(2).split().filter((bit) => {
+          // TODO find value from code book and then push remaining bits into encoded for next buffer
+        });
+      });
     } else if (this.format.indexOf('PGM_BIN') === 0) {
-      readPGMBinary(this.fd, onRead);
+      readPGMBinary(this.fd, collect);
+    }
+    if (pixels.length) {
+        onRead(processor(pixels));
     }
   }
 }

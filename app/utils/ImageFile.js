@@ -1,6 +1,5 @@
 import fs from 'fs';
 import readline from 'line-reader';
-import * as imageUtils from './image-utils';
 import PBMFileReader from './PBMFileReader';
 
 const PBM_COMPRESSED_FORMATS = {
@@ -67,14 +66,7 @@ export default class ImageFile {
             onComplete();
             console.log('Loaded image: ' + this.filepath + ' ' + this.width + ' ' + this.height + ' ' + this.colorBits);
         };
-        const getImagePixels = (data) => {
-            let pixels = [];
-            this.length += data.length;
-            if (this.format === PBM_COMPRESSED_FORMATS.E1 || this.format === PBM_COMPRESSED_FORMATS.E2) {
-                pixels = imageUtils.runLengthDecode(data);
-            } else {
-                pixels = data.map((value) => parseInt(value));
-            }
+        const getImagePixels = (pixels) => { //TODO refactor
             pixels.forEach((pixel) => {
                 this.pixels.push(pixel);
             });
@@ -105,9 +97,9 @@ export default class ImageFile {
                             } else if (this['load-init']) {
                             this['load-init']();
                             delete this['load-init'];
-                            onLoad(getImagePixels(line.split(/\s+/)));
+                            onLoad(getImagePixels(line.split(/\s+/))); //TODO refactor
                         } else if (onLoad) {
-                            onLoad(getImagePixels(line.split(/\s+/)));
+                            onLoad(getImagePixels(line.split(/\s+/))); //TODO refactor
                         } else {
                             reader.close('File is not a supported image format. Supported image formats:\n' + JSON.stringify(IMAGE_FORMATS, null, 2));
                         }
@@ -123,21 +115,7 @@ export default class ImageFile {
                 const reader = new PBMFileReader(fd, this.format);
                 Object.assign(this, reader.getInfo());
                 this['load-init']();
-                let pixels = [];
-                reader.readPixels((buffer) => {
-                    if (buffer.length === 4) {
-                        pixels.push(buffer.readUInt32BE(0));
-                    } else {
-                        pixels.push(buffer.readUInt8(0));
-                    }
-                    if (pixels.length === 64) {
-                        onLoad(getImagePixels(pixels));
-                        pixels = [];
-                    }
-                });
-                if (pixels.length) {
-                    onLoad(getImagePixels(pixels));
-                }
+                reader.readPixels((pixels) => onLoad(getImagePixels(pixels)), 64);
                 fs.close(fd, complete);
             } else {
                 fd.close(fd, () => onError('Unexpected error'));
