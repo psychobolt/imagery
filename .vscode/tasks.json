@@ -1,0 +1,22 @@
+{
+    "version": "0.1.0",
+    "command": "node",
+    "args": [ "${workspaceRoot}/node_modules/babel-cli/bin/babel.js" ],
+    "isShellCommand": true,
+    "tasks": [
+        {
+            "args": [
+                ".", 
+                "--ignore", "node_modules",
+                "--out-file", "main.development.debug.js", 
+                "-w", 
+                "--source-maps"
+            ],
+            "taskName": "watch",
+            "suppressTaskName": true,
+            "isBuildCommand": true,
+            "isWatching": true
+        }
+    ]
+
+}

@@ -3,10 +3,12 @@ import readline from 'line-reader';
 import PBMFileReader from './PBMFileReader';
 
 const PBM_COMPRESSED_FORMATS = {
-  "E1" : "PGM_ASCII_RLE_COMPRESSED",
+  //"E1" : "PGM_ASCII_RLE_COMPRESSED",
   "E2" : "PGM_BIN_RLE_COMPRESSED",
-  "E3" : "PGM_ASCII_HME_COMPRESSED",
-  "E4" : "PGM_BIN_HME_COMPRESSED"
+  //"E3" : "PGM_ASCII_HME_COMPRESSED",
+  "E4" : "PGM_BIN_HME_COMPRESSED",
+  //"E5" : "PGM_ASCII_LZW_COMPRESSED",
+  "E6" : "PGM_BIN_LZW_COMPRESSED"
 }
 
 const PBM_IMAGE_FORMATS = Object.assign({}, {
@@ -56,17 +58,15 @@ export default class ImageFile {
         const onError = this['load-error'] || function(error) {};
         const onComplete = this['load-complete'] || function() {};
         const complete = () => {
-            if (this.length !== this.pixels.length) {
-                this.compressionRatio = Math.ceil(this.pixels.length / this.length);
-                console.log('Compressed pixel count: ' + this.length);
-                console.log('Original pixel count: ' + this.pixels.length);
-                console.log('Compression Ratio: ' + this.compressionRatio);
-                this.length = this.pixels.length;
+            let length = this.pixels.length * 8;
+            if (this.length !== length) {
+                this.compressionRatio = Math.ceil(length / this.length);
             }
             onComplete();
             console.log('Loaded image: ' + this.filepath + ' ' + this.width + ' ' + this.height + ' ' + this.colorBits);
         };
-        const getImagePixels = (pixels) => { //TODO refactor
+        const getImagePixels = (pixels) => {
+            this.length += pixels.length;
             pixels.forEach((pixel) => {
                 this.pixels.push(pixel);
             });
@@ -97,9 +97,9 @@ export default class ImageFile {
                             } else if (this['load-init']) {
                             this['load-init']();
                             delete this['load-init'];
-                            onLoad(getImagePixels(line.split(/\s+/))); //TODO refactor
+                            onLoad(getImagePixels(line.split(/\s+/).map((value) => parseInt(value))));
                         } else if (onLoad) {
-                            onLoad(getImagePixels(line.split(/\s+/))); //TODO refactor
+                            onLoad(getImagePixels(line.split(/\s+/).map((value) => parseInt(value))));
                         } else {
                             reader.close('File is not a supported image format. Supported image formats:\n' + JSON.stringify(IMAGE_FORMATS, null, 2));
                         }
@@ -115,7 +115,7 @@ export default class ImageFile {
                 const reader = new PBMFileReader(fd, this.format);
                 Object.assign(this, reader.getInfo());
                 this['load-init']();
-                reader.readPixels((pixels) => onLoad(getImagePixels(pixels)), 64);
+                this.length = reader.readPixels((pixels) => onLoad(getImagePixels(pixels)), 64);
                 fs.close(fd, complete);
             } else {
                 fd.close(fd, () => onError('Unexpected error'));

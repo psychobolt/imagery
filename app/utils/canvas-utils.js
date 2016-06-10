@@ -254,23 +254,23 @@ export function huffmanEncode(stream, pixels, width, height, mode) {
       codeBook[token] = node.bit + codeBook[token];
     }
   });
+  let encoded = '';
+  pixels.forEach((pixel, index) => {
+      encoded += codeBook[pixel.toString()];
+  });
+  const chunks = encoded.match(/.{1,8}/g);
   let magicNumber = 'E4';
   if (mode === 1) {
     magicNumber = 'E3';
   }
   stream.write(magicNumber + '\n' + width + ' ' + height + '\n255\n');
   Object.keys(codeBook).forEach((key) => {
-      const buffer = new Buffer.allocUnsafe(2);
-      buffer.writeUInt8(parseInt(key));
-      buffer.writeUInt8(parseInt(codeBook[key], 2), 1);
-      stream.write(buffer);
-  })
-  let encoded = '';
-  pixels.forEach((pixel, index) => {
-      encoded += codeBook[pixel.toString()];
+    const buffer = new Buffer(2);
+    buffer.writeUInt8(parseInt(key));
+    buffer.writeUInt8(parseInt(codeBook[key], 2), 1);
+    stream.write(buffer);
   });
   stream.write('\n');
-  const chunks = encoded.match(/.{1,8}/g);
   chunks.forEach((chunk, index) => {
     let byte = parseInt(chunk, 2); 
     if (mode === 1) { // ASCII
@@ -283,6 +283,41 @@ export function huffmanEncode(stream, pixels, width, height, mode) {
   });
 }
 
+export function lzwEncode(stream, pixels, width, height, mode) {
+  const max = Math.pow(2, 16);
+  const writeBytes = function (bytes) {
+    if (mode === 1) { // ASCII
+      stream.write(bytes + ' ');
+    } else { // BIN
+      let buffer = new Buffer(2);
+      buffer.writeUInt16BE(bytes);
+      stream.write(buffer);
+    }
+  };
+  let output;
+  let index = 255;
+  let prev = '';
+  let dictionary = {};
+  let magicNumber = 'E6';
+  if (mode === 1) {
+    magicNumber = 'E5';
+  }
+  stream.write(magicNumber + '\n' + width + ' ' + height + '\n255\n');
+  pixels.forEach((pixel) => {
+    const key = prev + ' ' + pixel;
+    if (dictionary[key]) {
+      prev = key;
+    } else {
+      dictionary[key] = ++index;
+      output = dictionary[prev] ? dictionary[prev] : parseInt(prev);
+      writeBytes(output);
+      prev = pixel;
+    }
+  });
+  output = dictionary[prev] ? dictionary[prev] : parseInt(prev);
+  writeBytes(output);
+}
+
 export function exportCanvasAsImage(canvas, destination) {
   const stream = fs.createWriteStream(destination);
   const pixels = getPixels(canvas);
@@ -291,11 +326,11 @@ export function exportCanvasAsImage(canvas, destination) {
   if (method === 1) { // Run length encoding
     runLengthEncode(stream, pixels, canvas.width, canvas.height, mode);
   } else if (method === 2) { // huffman
-    huffmanEncode(stream, pixels, canvas.width, canvas.height);
+    huffmanEncode(stream, pixels, canvas.width, canvas.height, mode);
   } else if (method === 3) { // differential PCM
     
   } else if (method === 4) { // LZW
-    
+    lzwEncode(stream, pixels, canvas.width, canvas.height, mode);
   } else {
     stream.write('P5\n' + canvas.width + ' ' + canvas.height + '\n255\n');
     pixels.forEach((pixel, index) => {
