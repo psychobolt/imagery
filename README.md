@@ -44,7 +44,7 @@ Supported image formats: PGM ASCII (P2)
 
 ## Development
 
-Development status is active.
+Development status is inactive.
 
 To add new filters, see app/components/filters for examples.
 

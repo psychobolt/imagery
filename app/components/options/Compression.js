@@ -49,13 +49,13 @@ export default class Compression extends Option {
         <SelectField style={styles.select} disabled={this.state.disabled} value={this.state.method} onChange={this.onMethodChange}>
           <MenuItem value={1} primaryText="Run Length Encoding"/>
           <MenuItem value={2} primaryText="Huffman Tree"/>
-          <MenuItem value={3} primaryText="Differential PCM"/>
-          <MenuItem value={4} primaryText="LZW"/>
+          {//<MenuItem value={3} primaryText="Differential PCM"/>}
+          {//<MenuItem value={4} primaryText="LZW"/>}
         </SelectField>
       } />,
       <ListItem key="mode" disabled={true} primaryText={
         <SelectField style={styles.select} disabled={this.state.disabled} value={this.state.mode} onChange={this.onModeChange}>
-          <MenuItem value={1} primaryText="ASCII"/>
+          {//<MenuItem value={1} primaryText="ASCII"/>}
           <MenuItem value={2} primaryText="Binary"/>
         </SelectField>
       } />
